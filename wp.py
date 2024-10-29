@@ -40,6 +40,7 @@ def download_image(image_url):
             f.write(response.content)
         return image_filename
     except Exception as e:
+        print(f"Error downloading image: {e}")
         return None
 
 def extract_wattpad_story(story_url):
@@ -52,6 +53,7 @@ def extract_wattpad_story(story_url):
         response.raise_for_status()
         html_content = response.text
     except Exception as e:
+        print(f"Error fetching story: {e}")
         return [], [], "", "", ""
 
     soup = BeautifulSoup(html_content, 'html.parser')
@@ -95,6 +97,7 @@ def extract_wattpad_story(story_url):
 
             story_content.append((chapter_title, ''.join(chapter_content)))
         except Exception as e:
+            print(f"Error processing chapter {title}: {e}")
             continue
 
     return chapters, story_content, image_url, author_name, story_title
@@ -118,10 +121,10 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
     pdf.add_page()
     pdf.set_y(105)
     pdf.set_font("Arial", 'B', 24)
-    pdf.cell(0, 10, story_title, ln=True, align='C')
+    pdf.cell(0, 10, story_title.encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
     pdf.ln(10)
     pdf.set_font("Arial", size=16)
-    pdf.cell(0, 10, f"Penulis {author_name}", ln=True, align='C')
+    pdf.cell(0, 10, f"Penulis {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
     pdf.cell(0, 10, f"Tahun Terbit: {datetime.now().year}", ln=True, align='C')  # Tahun terbit otomatis
     pdf.cell(0, 10, f"Tanggal Cetak: {datetime.now().strftime('%d %B %Y')}", ln=True, align='C')  # Tanggal cetak otomatis
     pdf.ln(10)
@@ -130,7 +133,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
     pdf.cell(0, 10, "Daftar Bab", ln=True, align='C')
     pdf.set_font("Arial", size=16)
     for chapter in chapters:
-        pdf.cell(0, 10, chapter[0], ln=True, align='C')
+        pdf.cell(0, 10, chapter[0].encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
     pdf.ln(10)
     pdf.set_font("Arial", size=16)
     pdf.cell(0, 10, "Dibuat oleh: Wattpad Bot", ln=True, align='C')
@@ -141,7 +144,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
         pdf.multi_cell(0, 10, title.encode('latin-1', 'replace').decode('latin-1'), align='C')
         pdf.ln(5)
         pdf.set_font("Arial", 'I', 15)
-        pdf.cell(0, 10, f"Oleh {author_name}", ln=True, align='C')
+        pdf.cell(0, 10, f"Oleh {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
         pdf.ln(10)
 
         cleaned_content = re.sub(r'<[^>]+>', '', content)
@@ -151,15 +154,19 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
 
         for paragraph in paragraphs:
             if paragraph.strip():
-                pdf.multi_cell(0, 10, paragraph, align='L')
+                pdf.multi_cell(0, 10, paragraph.encode('latin-1', 'replace').decode('latin-1'), align='L')
                 pdf.ln(5)
         pdf.set_y(-25)
         pdf.set_font("Arial", size=15)
-        pdf.cell(0, 10, story_title, ln=False, align='L')
+        pdf.cell(0, 10, story_title.encode('latin-1', 'replace').decode('latin-1'), ln=False, align='L')
         pdf.set_x(pdf.w - 15)
         pdf.cell(0, 10, f"WATTPAD BOT | {page_num}", ln=True, align='R')
 
     pdf.output(pdf_filename)
+
+    # Hapus file setelah pengiriman
+    if os.path.exists(pdf_filename):
+        os.remove(pdf_filename)
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text('Kirimkan link cerita Wattpad yang ingin Anda konversi ke PDF.')
@@ -167,7 +174,8 @@ def start(update: Update, context: CallbackContext):
 def handle_message(update: Update, context: CallbackContext):
     if update.message and update.message.text:
         url = update.message.text
-        update.message.reply_text('Proses konversi sedang berlangsung, mohon tunggu...')
+        # Mengirim pesan proses konversi
+        message = update.message.reply_text('Proses konversi sedang berlangsung, mohon tunggu...')
         chapters, story_content, image_url, author_name, story_title = extract_wattpad_story(url)
 
         if not chapters or not story_content:
@@ -179,7 +187,9 @@ def handle_message(update: Update, context: CallbackContext):
         
         with open(pdf_filename, 'rb') as pdf:
             update.message.reply_document(pdf)
-        update.message.reply_text('PDF telah dibuat dan dikirimkan!')
+        
+        # Hapus pesan proses konversi setelah pengiriman PDF
+        context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id)
     else:
         print("Received update does not contain a message or text.")
 
