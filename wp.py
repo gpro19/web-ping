@@ -66,7 +66,7 @@ def reset_usage():
     save_user_data(user_data)
 
 # Mencatat penggunaan ke saluran
-def log_usage_to_channel(user_id):    
+def log_usage_to_channel(user_id):
     message = f"User ID: {user_id} telah menggunakan bot."
     updater.bot.send_message(chat_id=-1002285439982, text=message)
 
@@ -164,7 +164,6 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
             pdf.ln(5)
 
         pdf.add_page()
-        #pdf.set_y(105) 
         page_height = pdf.get_page_height()
         page_center = page_height / 2
 
@@ -174,7 +173,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
         
         pdf.ln(5)
         pdf.set_font("Arial", size=14)
-        pdf.cell(0, 10, f"Penulis {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
+        pdf.cell(0, 10, f"Penulis: {author_name}", ln=True, align='C')
         pdf.cell(0, 10, f"Tahun Terbit: {datetime.now().year}", ln=True, align='C')  
         pdf.cell(0, 10, f"Tanggal Cetak: {datetime.now().strftime('%d %B %Y')}", ln=True, align='C')  
         pdf.ln(10)
@@ -183,7 +182,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
         pdf.cell(0, 10, "Daftar Bab", ln=True, align='C')
         pdf.set_font("Arial", size=15)
         for chapter in chapters:
-            pdf.cell(0, 10, chapter[0].encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
+            pdf.cell(0, 10, chapter[0], ln=True, align='C')
         pdf.ln(10)
         pdf.set_font("Arial", size=13)
         pdf.cell(0, 10, "Dibuat oleh: Wattpad To Pdf Bot", ln=True, align='C')
@@ -194,29 +193,29 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
             pdf.multi_cell(0, 10, clean_filename(title), align='C')
             pdf.ln(5)
             pdf.set_font("Arial", 'I', 15)
-            pdf.cell(0, 10, f"Oleh {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
+            pdf.cell(0, 10, f"Oleh {author_name}", ln=True, align='C')
             pdf.ln(10)
 
             cleaned_content = re.sub(r'<[^>]+>', '', content)
-            formatted_content = format_content(cleaned_content)
-            pdf.set_font("Arial", size=20)
-            paragraphs = formatted_content.split('\n')
+            formatted_content = cleaned_content.split('\n')
 
-            for paragraph in paragraphs:
+            pdf.set_font("Arial", size=20)
+            for paragraph in formatted_content:
                 if paragraph.strip():
                     pdf.multi_cell(0, 10, paragraph, align='L')
                     pdf.ln(5)
 
             pdf.set_y(-25)
             pdf.set_font("Arial", size=15)
-            pdf.cell(0, 10, story_title.encode('latin-1', 'replace').decode('latin-1'), ln=False, align='L')
+            pdf.cell(0, 10, story_title, ln=False, align='L')
             pdf.set_x(pdf.w - 15)
             pdf.cell(0, 10, f"Wattpad To Pdf | {page_num}", ln=True, align='R')
 
         pdf.output(pdf_filename)    
-    
 
-    
+    except Exception as e:
+        print(f"Error creating PDF: {e}")
+
 # Fungsi untuk menangani pesan
 def handle_message(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
@@ -304,7 +303,7 @@ def handle_admin_commands(update: Update, context: CallbackContext):
 # Fungsi utama
 def main():
     global updater
-    updater = Updater("8079725112:AAHnpBTTWz_fpJPhW8Pv3vEcZHnlOQhXYlg")
+    updater = Updater("8079725112:AAHnpBTTWz_fpJPhW8Pv3vEcZHnlOQhXYlg")  # Ganti dengan token bot Anda
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
@@ -319,3 +318,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
+   
