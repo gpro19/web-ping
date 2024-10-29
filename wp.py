@@ -5,43 +5,72 @@ import re
 from fpdf import FPDF
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-from datetime import datetime
+from datetime import datetime, date
 from flask import Flask, request
 import threading
+import json
 
 app = Flask(__name__)
 
 chapterCount = 0
 
+# Memuat data pengguna dari file JSON
+def load_user_data():
+    if not os.path.exists('user_data.json'):
+        return {"users": {}}
+    with open('user_data.json', 'r') as f:
+        return json.load(f)
+
+# Menyimpan data pengguna ke file JSON
+def save_user_data(data):
+    with open('user_data.json', 'w') as f:
+        json.dump(data, f)
+
+# Fungsi untuk membersihkan dan memformat teks
 def clean_text(text):
     text = re.sub(r'<p.*?>', '\n', text)
     text = re.sub(r'\xa0', '', text)
     return text
 
 def clean_filename(title):
-    # Menghapus emoji dan karakter non-standar
-    title = re.sub(r'[^\x20-\x7E]', '', title)  # Hapus karakter di luar rentang ASCII
-    filename = title
+    title = re.sub(r'[^\x20-\x7E]', '', title)
     for i in ['\\', '/', ':', '*', '?', '"', '<', '>', '|', '^']:
-        if i in filename:
-            filename = filename.replace(i, '')
-    filename = filename.lstrip('.')
-    return filename
+        if i in title:
+            title = title.replace(i, '')
+    return title.lstrip('.')
 
-def get_page(text_url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    response = requests.get(text_url, headers=headers)
-    if response.status_code != 200:
-        return ""
-    soup = BeautifulSoup(response.content, 'html.parser')
-    for element in soup.select('div.panel.panel-reading p[data-image-layout], div.panel.panel-reading span'):
-        element.decompose()
-    content_elem = soup.select('div.panel.panel-reading p[data-p-id]')
-    cleaned_content = [clean_text(str(para)) for para in content_elem]
-    return ''.join(cleaned_content)
+# Memeriksa apakah pengguna adalah anggota premium
+def is_premium_user(user_id):
+    premium_users = [1910497806, 5833893519, 5166575484, 6172467461]  # ID developer
+    user_data = load_user_data()
+    return user_id in premium_users or user_data["users"].get(str(user_id), {}).get("premium", False)
 
+# Menginisialisasi jumlah penggunaan pengguna
+def initialize_user(user_id):
+    user_data = load_user_data()
+    if str(user_id) not in user_data["users"]:
+        user_data["users"][str(user_id)] = {
+            "usage_count": 0,
+            "last_reset": str(date.today()),
+            "premium": False
+        }
+        save_user_data(user_data)
+
+# Mereset jumlah penggunaan setiap hari
+def reset_usage():
+    user_data = load_user_data()
+    for user_id, data in user_data["users"].items():
+        if data["last_reset"] != str(date.today()):
+            data["usage_count"] = 0
+            data["last_reset"] = str(date.today())
+    save_user_data(user_data)
+
+# Mencatat penggunaan ke saluran
+def log_usage_to_channel(user_id):    
+    message = f"User ID: {user_id} telah menggunakan bot."
+    updater.bot.send_message(chat_id=-1002285439982, text=message)
+
+# Fungsi untuk mengunduh gambar
 def download_image(image_url):
     try:
         response = requests.get(image_url)
@@ -54,6 +83,7 @@ def download_image(image_url):
         print(f"Error downloading image: {e}")
         return None
 
+# Mengekstrak cerita Wattpad
 def extract_wattpad_story(story_url):
     global chapterCount
     headers = {
@@ -116,11 +146,11 @@ def extract_wattpad_story(story_url):
 
     return chapters, story_content, image_url, author_name, story_title
 
-def format_content(content):
-    content = re.sub(r'[^\x20-\x7E]', '', content)
-    sentences = re.split(r'(?<=[.!?]) +', content)
-    return '\n'.join(sentences)
+# Memeriksa apakah URL valid
+def is_valid_url(url):
+    return re.match(r'^(http://|https://)', url) is not None
 
+# Fungsi untuk membuat PDF
 def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename):
     pdf = FPDF()
     pdf.set_margins(left=15, top=15, right=15)
@@ -134,7 +164,11 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
             pdf.ln(5)
 
         pdf.add_page()
-        #pdf.set_y(105)       
+        #pdf.set_y(105) 
+        page_height = pdf.get_page_height()
+        page_center = page_height / 2
+
+        pdf.set_y(page_center - 50) 
         pdf.set_font("Arial", 'B', 20)
         pdf.cell(0, 10, clean_filename(story_title), ln=True, align='C')
         
@@ -179,60 +213,108 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
             pdf.set_x(pdf.w - 15)
             pdf.cell(0, 10, f"Wattpad To Pdf | {page_num}", ln=True, align='R')
 
-        pdf.output(pdf_filename)
+        pdf.output(pdf_filename)    
+    
 
-    except Exception as e:
-        print(f"Error buat PDF: {e}")
+    print(f"PDF berhasil dibuat: {pdf_filename}")
 
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text('Kirimkan link cerita Wattpad yang ingin Anda konversi ke PDF.')
-
+# Fungsi untuk menangani pesan
 def handle_message(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    initialize_user(user_id)
+    reset_usage()
+
+    user_data = load_user_data()
+    user_info = user_data["users"][str(user_id)]
+
+    if not is_premium_user(user_id) and user_info["usage_count"] >= 3:
+        update.message.reply_text('Anda telah mencapai batas penggunaan harian. Silakan coba lagi besok.')
+        return
+
     if update.message and update.message.text:
-        url = update.message.text
-        message = update.message.reply_text('Proses konversi sedang berlangsung, mohon tunggu...')
+        url = update.message.text.strip()
         
+        if not is_valid_url(url):
+            update.message.reply_text('URL tidak valid. Pastikan Anda mengirimkan URL yang benar.')
+            return
+
+        message = update.message.reply_text('Proses konversi sedang berlangsung, mohon tunggu...')
+
         chapters, story_content, image_url, author_name, story_title = extract_wattpad_story(url)
 
         if not chapters or not story_content:
             update.message.reply_text('Gagal mengambil cerita. Pastikan URL Wattpad valid.')
             return
 
+        user_info["usage_count"] += 1
+        save_user_data(user_data)
+
+        log_usage_to_channel(user_id)
+
+        # Memanggil fungsi create_pdf untuk menghasilkan file PDF
         pdf_filename = f"{clean_filename(story_title)} by {clean_filename(author_name)} (WattpadToPdfbot).pdf"
         create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
-        
+
         if os.path.exists(pdf_filename):
             with open(pdf_filename, 'rb') as pdf:
                 update.message.reply_document(pdf)
         else:
             update.message.reply_text('File PDF tidak dapat dibuat.')
-        
+
         context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id)
+
+# Fungsi untuk menambahkan anggota premium
+def add_premium_member(user_id):
+    user_data = load_user_data()
+    if str(user_id) not in user_data["users"]:
+        user_data["users"][str(user_id)] = {
+            "usage_count": 0,
+            "last_reset": str(date.today()),
+            "premium": True
+        }
     else:
-        print("Received update does not contain a message or text.")
+        user_data["users"][str(user_id)]["premium"] = True
+    save_user_data(user_data)
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    update = request.get_json()
-    print(update)  # Log the received update for debugging
-    if "message" in update and "text" in update["message"]:
-        handle_message(update)
-    return '', 200
+# Fungsi untuk menghapus anggota premium
+def remove_premium_member(user_id):
+    user_data = load_user_data()
+    if str(user_id) in user_data["users"]:
+        user_data["users"][str(user_id)]["premium"] = False
+    save_user_data(user_data)
 
-def run_flask():
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)))
+# Fungsi untuk menangani perintah admin
+def handle_admin_commands(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    if user_id not in [1910497806, 5833893519, 5166575484, 6172467461]:  # Memeriksa apakah pengguna adalah developer
+        update.message.reply_text('Anda tidak memiliki izin untuk mengakses perintah ini.')
+        return
 
+    command = context.args[0] if context.args else None
+    target_user_id = int(context.args[1]) if len(context.args) > 1 else None
+
+    if command == "addpremium" and target_user_id:
+        add_premium_member(target_user_id)
+        update.message.reply_text(f'User ID {target_user_id} telah ditambahkan sebagai premium.')
+    elif command == "delpremium" and target_user_id:
+        remove_premium_member(target_user_id)
+        update.message.reply_text(f'User ID {target_user_id} telah dihapus dari premium.')
+    else:
+        update.message.reply_text('Perintah tidak dikenali atau parameter tidak valid.')
+
+# Fungsi utama
 def main():
-    # Inisialisasi bot Telegram
+    global updater
     updater = Updater("8079725112:AAHnpBTTWz_fpJPhW8Pv3vEcZHnlOQhXYlg")
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    
-    # Jalankan bot di thread terpisah
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_admin_commands))
+
+    # Menjalankan bot dan aplikasi Flask dalam thread terpisah
     updater.start_polling()
 
-    # Jalankan Flask app di thread terpisah
+    # Setup Flask
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
 
