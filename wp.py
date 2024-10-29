@@ -308,16 +308,20 @@ def handle_admin_commands(update: Update, context: CallbackContext):
         update.message.reply_text('Perintah tidak dikenali atau parameter tidak valid.')
 
 # Fungsi untuk menjalankan aplikasi Flask
-def run_flask():
-    @app.route('/')
-    def index():
-        return "Flask is running!"
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    update = request.get_json()
+    print(update)  # Log the received update for debugging
+    if "message" in update and "text" in update["message"]:
+        handle_message(update)
+    return '', 200
 
-    app.run(port=8000)
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)))
 
 # Fungsi utama
 def main():
-    global updater
+   
     updater = Updater("8079725112:AAHnpBTTWz_fpJPhW8Pv3vEcZHnlOQhXYlg")  # Ganti dengan token bot Anda
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
@@ -327,7 +331,7 @@ def main():
     # Menjalankan bot
     updater.start_polling()
 
-    # Setup Flask
+    # Jalankan Flask app di thread terpisah
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
 
