@@ -50,11 +50,14 @@ def remove_premium_member(user_id):
 # Fungsi untuk menangani perintah admin
 def handle_admin_commands(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
+    print(f"User ID: {user_id}")  # Debugging
     if user_id not in [1910497806, 5833893519, 5166575484, 6172467461]:  # Memeriksa apakah pengguna adalah developer
         update.message.reply_text('Anda tidak memiliki izin untuk mengakses perintah ini.')
         return
 
     command = context.args[0] if context.args else None
+    print(f"Command: {command}, Args: {context.args}")  # Debugging
+
     target_user_id = None
 
     if len(context.args) > 1:
@@ -353,8 +356,8 @@ def main():
     updater = Updater("8079725112:AAHnpBTTWz_fpJPhW8Pv3vEcZHnlOQhXYlg")
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("admin", handle_admin_commands))  # Menambahkan handler untuk perintah admin
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_admin_commands))
     
     # Jalankan bot di thread terpisah
     updater.start_polling()
