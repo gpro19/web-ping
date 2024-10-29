@@ -261,6 +261,12 @@ def handle_message(update: Update, context: CallbackContext):
 
         context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id)
 
+# Fungsi untuk menangani perintah /start
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text(
+        "Selamat datang di Wattpad To PDF Bot! Kirimkan URL cerita Wattpad yang ingin Anda konversi ke PDF."
+    )
+
 # Fungsi untuk menambahkan anggota premium
 def add_premium_member(user_id):
     user_data = load_user_data()
@@ -318,5 +324,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
-   
