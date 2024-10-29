@@ -6,11 +6,12 @@ from fpdf import FPDF
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from datetime import datetime, date
-from flask import Flask, request
 import threading
 import json
 
-app = Flask(__name__)
+# Inisialisasi aplikasi Flask jika diperlukan
+# from flask import Flask
+# app = Flask(__name__)
 
 chapterCount = 0
 
@@ -315,12 +316,12 @@ def main():
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_admin_commands))
 
-    # Menjalankan bot dan aplikasi Flask dalam thread terpisah
+    # Menjalankan bot
     updater.start_polling()
 
-    # Setup Flask
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.start()
+    # Setup Flask jika diperlukan
+    # flask_thread = threading.Thread(target=run_flask)
+    # flask_thread.start()
 
 if __name__ == '__main__':
     main()
