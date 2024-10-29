@@ -19,6 +19,8 @@ def clean_text(text):
     return text
 
 def clean_filename(title):
+    # Menghapus emoji dan karakter non-standar
+    title = re.sub(r'[^\x20-\x7E]', '', title)  # Hapus karakter di luar rentang ASCII
     filename = title
     for i in ['\\', '/', ':', '*', '?', '"', '<', '>', '|', '^']:
         if i in filename:
