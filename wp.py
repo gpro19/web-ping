@@ -136,7 +136,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
         pdf.set_font("Arial", 'B', 20)
         pdf.cell(0, 10, story_title, ln=True, align='C')
         pdf.ln(10)
-        pdf.set_font("Arial", size=1e)
+        pdf.set_font("Arial", size=14)
         pdf.cell(0, 10, f"Penulis {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
         pdf.cell(0, 10, f"Tahun Terbit: {datetime.now().year}", ln=True, align='C')  
         pdf.cell(0, 10, f"Tanggal Cetak: {datetime.now().strftime('%d %B %Y')}", ln=True, align='C')  
