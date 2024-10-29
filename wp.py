@@ -164,20 +164,31 @@ def start(update: Update, context: CallbackContext):
     update.message.reply_text('Kirimkan link cerita Wattpad yang ingin Anda konversi ke PDF.')
 
 def handle_message(update: Update, context: CallbackContext):
-    url = update.message.text
-    update.message.reply_text('Proses konversi sedang berlangsung, mohon tunggu...')
-    chapters, story_content, image_url, author_name, story_title = extract_wattpad_story(url)
+    if update.message and update.message.text:
+        url = update.message.text
+        update.message.reply_text('Proses konversi sedang berlangsung, mohon tunggu...')
+        chapters, story_content, image_url, author_name, story_title = extract_wattpad_story(url)
 
-    if not chapters or not story_content:
-        update.message.reply_text('Gagal mengambil cerita. Pastikan URL Wattpad valid.')
-        return
+        if not chapters or not story_content:
+            update.message.reply_text('Gagal mengambil cerita. Pastikan URL Wattpad valid.')
+            return
 
-    pdf_filename = f"{story_title} by {author_name}.pdf"
-    create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
-    
-    with open(pdf_filename, 'rb') as pdf:
-        update.message.reply_document(pdf)
-    update.message.reply_text('PDF telah dibuat dan dikirimkan!')
+        pdf_filename = f"{story_title} by {author_name}.pdf"
+        create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
+        
+        with open(pdf_filename, 'rb') as pdf:
+            update.message.reply_document(pdf)
+        update.message.reply_text('PDF telah dibuat dan dikirimkan!')
+    else:
+        print("Received update does not contain a message or text.")
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    update = request.get_json()
+    print(update)  # Log the received update for debugging
+    if "message" in update and "text" in update["message"]:
+        handle_message(update)
+    return '', 200
 
 def main():
     # Inisialisasi bot Telegram
@@ -190,14 +201,7 @@ def main():
     updater.start_polling()
 
     # Jalankan Flask app
-    app.run(port=int(os.environ.get("PORT", 8000)))
-
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    update = request.get_json()
-    if "message" in update:
-        handle_message(update)
-    return '', 200
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)))
 
 if __name__ == '__main__':
     main()
