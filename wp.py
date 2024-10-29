@@ -323,9 +323,9 @@ def handle_message(update: Update, context: CallbackContext):
         create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
 
         if os.path.exists(pdf_filename):
-            log_usage_to_channel(context.bot, user_id, pdf_filename, url) 
             with open(pdf_filename, 'rb') as pdf:
-                
+                log_usage_to_channel(context.bot, user_id, pdf_filename, url) 
+            
                 caption = f"File: {pdf_filename}\nDiupload oleh: @WattpadToPdfbot"
                 update.message.reply_document(pdf, caption=caption)
         else:
