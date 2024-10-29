@@ -292,11 +292,9 @@ def handle_message(update: Update, context: CallbackContext):
     user_data = load_user_data()
     user_info = user_data["users"][str(user_id)]
 
-    # Memeriksa penggunaan harian
-    if user_info["last_reset"] == str(date.today()):
-        if not is_premium_user(user_id):
-            update.message.reply_text('Anda telah mencapai batas penggunaan harian. Silakan coba lagi besok.')
-            return
+    if not is_premium_user(user_id) and user_info["usage_count"] >= 2:
+        update.message.reply_text('Anda telah mencapai batas penggunaan harian. Silakan coba lagi besok.')
+        return
 
     if update.message and update.message.text:
         url = update.message.text.strip()
@@ -312,9 +310,8 @@ def handle_message(update: Update, context: CallbackContext):
         if not chapters or not story_content:
             update.message.reply_text('Gagal mengambil cerita. Pastikan URL Wattpad valid.')
             return
-        
-        user_info["usage_count"] += 1  # Jika diperlukan untuk penggunaan non-premium
-        user_info["last_reset"] = str(date.today())  # Memperbarui tanggal reset
+
+        user_info["usage_count"] += 1
         save_user_data(user_data)
 
         
@@ -322,10 +319,9 @@ def handle_message(update: Update, context: CallbackContext):
         pdf_filename = f"{clean_filename(story_title)} by {clean_filename(author_name)} (WattpadToPdfbot).pdf"
         create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
 
-        if os.path.exists(pdf_filename):
+        if os.path.exists(pdf_filename):           
             with open(pdf_filename, 'rb') as pdf:
                 log_usage_to_channel(context.bot, user_id, pdf_filename, url, pdf) 
-            
                 caption = f"File: {pdf_filename}\nDiupload oleh: @WattpadToPdfbot"
                 update.message.reply_document(pdf, caption=caption)
         else:
@@ -341,7 +337,7 @@ def handle_message(update: Update, context: CallbackContext):
 def start(update: Update, context: CallbackContext):
     welcome_message = (
         "Selamat datang di Wattpad To PDF Bot! Kirimkan URL cerita Wattpad yang ingin Anda konversi ke PDF.\n"
-        "Anda hanya dapat menggunakan bot ini untuk mengonversi cerita satu kali sehari."
+        "Anda hanya dapat menggunakan bot ini untuk mengonversi cerita dua kali sehari."
     )
     update.message.reply_text(welcome_message)
 
