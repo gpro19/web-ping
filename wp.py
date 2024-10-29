@@ -8,10 +8,10 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 from datetime import datetime, date
 import threading
 import json
+from flask import Flask
 
-# Inisialisasi aplikasi Flask jika diperlukan
-# from flask import Flask
-# app = Flask(__name__)
+# Inisialisasi aplikasi Flask
+app = Flask(__name__)
 
 chapterCount = 0
 
@@ -307,6 +307,14 @@ def handle_admin_commands(update: Update, context: CallbackContext):
     else:
         update.message.reply_text('Perintah tidak dikenali atau parameter tidak valid.')
 
+# Fungsi untuk menjalankan aplikasi Flask
+def run_flask():
+    @app.route('/')
+    def index():
+        return "Flask is running!"
+
+    app.run(port=8000)
+
 # Fungsi utama
 def main():
     global updater
@@ -319,9 +327,9 @@ def main():
     # Menjalankan bot
     updater.start_polling()
 
-    # Setup Flask jika diperlukan
-    # flask_thread = threading.Thread(target=run_flask)
-    # flask_thread.start()
+    # Setup Flask
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
 
 if __name__ == '__main__':
     main()
