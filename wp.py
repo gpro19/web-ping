@@ -17,6 +17,14 @@ def clean_text(text):
     text = re.sub(r'\xa0', '', text)
     return text
 
+def clean_filename(title):
+    filename = title
+    for i in ['\\', '/', ':', '*', '?', '"', '<', '>', '|', '^']:
+        if i in filename:
+            filename = filename.replace(i, '')
+    filename = filename.lstrip('.')
+    return filename
+    
 def get_page(text_url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -61,8 +69,11 @@ def extract_wattpad_story(story_url):
     image_url = cover_image['src'] if cover_image else ""
     author_info = soup.select_one('div.author-info__username a')
     author_name = author_info.get_text(strip=True) if author_info else "Unknown Author"
+    
     story_title_elem = soup.select('div.story-info__title')
     story_title = story_title_elem[0].get_text(strip=True) if story_title_elem else "Judul Tidak Ditemukan"
+    story_title = clean_filename(story_title)
+    
     chapterlist = soup.select('.story-parts ul li a')
     chapters = []
     seen_titles = set()
@@ -185,14 +196,11 @@ def handle_message(update: Update, context: CallbackContext):
         pdf_filename = f"{story_title} by {author_name}.pdf"
         create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
         
-        # Memeriksa jika file PDF ada sebelum membukanya
-        if os.path.exists(pdf_filename):
-            with open(pdf_filename, 'rb') as pdf:
-                update.message.reply_document(pdf)
-            # Hapus pesan proses konversi setelah pengiriman PDF
-            context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id)
-        else:
-            update.message.reply_text('PDF gagal dibuat. Silakan coba lagi.')
+        with open(pdf_filename, 'rb') as pdf:
+            update.message.reply_document(pdf)
+        
+        # Hapus pesan proses konversi setelah pengiriman PDF
+        context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id)
     else:
         print("Received update does not contain a message or text.")
 
