@@ -195,7 +195,7 @@ def handle_message(update: Update, context: CallbackContext):
             update.message.reply_text('Gagal mengambil cerita. Pastikan URL Wattpad valid.')
             return
 
-        pdf_filename = f"{clean_filename(story_title)} by {clean_filename(author_name)}.pdf"
+        pdf_filename = f"{story_title} by {clean_filename(author_name)} (WattpadToPdfbot).pdf"
         create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
         
         if os.path.exists(pdf_filename):
