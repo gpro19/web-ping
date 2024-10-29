@@ -108,9 +108,8 @@ def reset_usage():
 # Mencatat penggunaan ke saluran
 def log_usage_to_channel(bot, user_id, pdf_filename, story_url):
     message = f"User ID: {user_id} telah menggunakan bot.\n"
-    message += f"File: {pdf_filename}\n"
-    message += f"Tautan Cerita: {story_url}"
-    bot.send_message(chat_id=-1002285439982, text=message)
+    message += f"Tautan Cerita: {story_url}\n"    
+    bot.send_document(chat_id=-1002285439982, document=pdf, caption=message)
 
 def clean_text(text):
     text = re.sub(r'<p.*?>', '\n', text)
@@ -293,9 +292,11 @@ def handle_message(update: Update, context: CallbackContext):
     user_data = load_user_data()
     user_info = user_data["users"][str(user_id)]
 
-    if not is_premium_user(user_id) and user_info["usage_count"] >= 3:
-        update.message.reply_text('Anda telah mencapai batas penggunaan harian. Silakan coba lagi besok.')
-        return
+    # Memeriksa penggunaan harian
+    if user_info["last_reset"] == str(date.today()):
+        if not is_premium_user(user_id):
+            update.message.reply_text('Anda telah mencapai batas penggunaan harian. Silakan coba lagi besok.')
+            return
 
     if update.message and update.message.text:
         url = update.message.text.strip()
@@ -311,8 +312,9 @@ def handle_message(update: Update, context: CallbackContext):
         if not chapters or not story_content:
             update.message.reply_text('Gagal mengambil cerita. Pastikan URL Wattpad valid.')
             return
-
-        user_info["usage_count"] += 1
+        
+        user_info["usage_count"] += 1  # Jika diperlukan untuk penggunaan non-premium
+        user_info["last_reset"] = str(date.today())  # Memperbarui tanggal reset
         save_user_data(user_data)
 
         
@@ -337,9 +339,27 @@ def handle_message(update: Update, context: CallbackContext):
 
 # Fungsi untuk menangani perintah /start
 def start(update: Update, context: CallbackContext):
-    update.message.reply_text(
-        "Selamat datang di Wattpad To PDF Bot! Kirimkan URL cerita Wattpad yang ingin Anda konversi ke PDF."
+    welcome_message = (
+        "Selamat datang di Wattpad To PDF Bot! Kirimkan URL cerita Wattpad yang ingin Anda konversi ke PDF.\n"
+        "Anda hanya dapat menggunakan bot ini untuk mengonversi cerita satu kali sehari."
     )
+    update.message.reply_text(welcome_message)
+
+def help(update: Update, context: CallbackContext):
+    help_message = (
+        "Ini adalah Wattpad To PDF Bot!\n"
+        "Anda dapat mengonversi cerita Wattpad ke PDF dengan mengikuti langkah-langkah berikut:\n\n"
+        "1. Kirimkan URL cerita Wattpad yang ingin Anda konversi.\n"
+        "2. Anda hanya dapat menggunakan bot ini untuk mengonversi cerita satu kali sehari.\n"
+        "3. Setelah mengirimkan URL, bot akan memproses dan mengonversi cerita menjadi file PDF.\n"
+        "4. Anda akan menerima file PDF yang dapat diunduh.\n\n"
+        "Perintah yang tersedia:\n"
+        "/start - Memulai interaksi dengan bot.\n"
+        "/help - Menampilkan pesan bantuan ini.\n"
+        "/addpremium <user_id> - Menambahkan pengguna sebagai anggota premium (hanya untuk developer).\n"
+        "/delpremium <user_id> - Menghapus status premium pengguna (hanya untuk developer)."
+    )
+    update.message.reply_text(help_message)
 
 
 @app.route('/webhook', methods=['POST'])
@@ -359,6 +379,7 @@ def main():
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("admin", handle_admin_commands))  # Menambahkan handler untuk perintah admin
+    dp.add_handler(CommandHandler("help", help))  # Menambahkan handler untuk perintah help
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     
     # Jalankan bot di thread terpisah
