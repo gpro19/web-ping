@@ -181,7 +181,7 @@ def handle_message(update: Update, context: CallbackContext):
 
 def main():
     # Inisialisasi bot Telegram
-    updater = Updater("YOUR_TELEGRAM_BOT_TOKEN")
+    updater = Updater("6308990102:AAFH_eAfo4imTAWnQ5CZeDUFNAC35rytnT0")
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
@@ -190,7 +190,7 @@ def main():
     updater.start_polling()
 
     # Jalankan Flask app
-    app.run(port=int(os.environ.get("PORT", 5000)))
+    app.run(port=int(os.environ.get("PORT", 8000)))
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
