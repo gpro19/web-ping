@@ -7,6 +7,7 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from datetime import datetime
 from flask import Flask, request
+import threading
 
 app = Flask(__name__)
 
@@ -24,7 +25,7 @@ def clean_filename(title):
             filename = filename.replace(i, '')
     filename = filename.lstrip('.')
     return filename
-    
+
 def get_page(text_url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -80,6 +81,7 @@ def extract_wattpad_story(story_url):
 
     for item in chapterlist:
         title = item.select_one('div.part__label .part-title').get_text(strip=True)
+        title = clean_filename(title)
         link = item['href']
         if title not in seen_titles:
             chapters.append((title, link))
@@ -131,28 +133,28 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
 
         pdf.add_page()
         pdf.set_y(105)
-        pdf.set_font("Arial", 'B', 24)
-        pdf.cell(0, 10, story_title.encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
+        pdf.set_font("Arial", 'B', 20)
+        pdf.cell(0, 10, story_title, ln=True, align='C')
         pdf.ln(10)
-        pdf.set_font("Arial", size=16)
+        pdf.set_font("Arial", size=1e)
         pdf.cell(0, 10, f"Penulis {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
         pdf.cell(0, 10, f"Tahun Terbit: {datetime.now().year}", ln=True, align='C')  
         pdf.cell(0, 10, f"Tanggal Cetak: {datetime.now().strftime('%d %B %Y')}", ln=True, align='C')  
         pdf.ln(10)
 
-        pdf.set_font("Arial", 'B', 20)
+        pdf.set_font("Arial", 'B', 18)
         pdf.cell(0, 10, "Daftar Bab", ln=True, align='C')
-        pdf.set_font("Arial", size=16)
+        pdf.set_font("Arial", size=15)
         for chapter in chapters:
             pdf.cell(0, 10, chapter[0].encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
         pdf.ln(10)
-        pdf.set_font("Arial", size=16)
-        pdf.cell(0, 10, "Dibuat oleh: Wattpad Bot", ln=True, align='C')
+        pdf.set_font("Arial", size=13)
+        pdf.cell(0, 10, "Dibuat oleh: Wattpad To Pdf Bot", ln=True, align='C')
 
         for page_num, (title, content) in enumerate(story_content, start=1):
             pdf.add_page()
-            pdf.set_font("Arial", 'B', 27)
-            pdf.multi_cell(0, 10, title.encode('latin-1', 'replace').decode('latin-1'), align='C')
+            pdf.set_font("Arial", 'B', 25)
+            pdf.multi_cell(0, 10, title, align='C')
             pdf.ln(5)
             pdf.set_font("Arial", 'I', 15)
             pdf.cell(0, 10, f"Oleh {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
@@ -165,19 +167,19 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
 
             for paragraph in paragraphs:
                 if paragraph.strip():
-                    pdf.multi_cell(0, 10, paragraph.encode('latin-1', 'replace').decode('latin-1'), align='L')
+                    pdf.multi_cell(0, 10, paragraph, align='L')
                     pdf.ln(5)
 
             pdf.set_y(-25)
             pdf.set_font("Arial", size=15)
             pdf.cell(0, 10, story_title.encode('latin-1', 'replace').decode('latin-1'), ln=False, align='L')
             pdf.set_x(pdf.w - 15)
-            pdf.cell(0, 10, f"WATTPAD BOT | {page_num}", ln=True, align='R')
+            pdf.cell(0, 10, f"Wattpad To Pdf | {page_num}", ln=True, align='R')
 
         pdf.output(pdf_filename)
 
     except Exception as e:
-        print(f"Error creating PDF: {e}")
+        print(f"Error buat PDF: {e}")
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text('Kirimkan link cerita Wattpad yang ingin Anda konversi ke PDF.')
@@ -186,6 +188,7 @@ def handle_message(update: Update, context: CallbackContext):
     if update.message and update.message.text:
         url = update.message.text
         message = update.message.reply_text('Proses konversi sedang berlangsung, mohon tunggu...')
+        
         chapters, story_content, image_url, author_name, story_title = extract_wattpad_story(url)
 
         if not chapters or not story_content:
@@ -213,9 +216,12 @@ def webhook():
         handle_message(update)
     return '', 200
 
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)))
+
 def main():
     # Inisialisasi bot Telegram
-    updater = Updater("6308990102:AAFH_eAfo4imTAWnQ5CZeDUFNAC35rytnT0")
+    updater = Updater("8079725112:AAHnpBTTWz_fpJPhW8Pv3vEcZHnlOQhXYlg")
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
@@ -223,8 +229,9 @@ def main():
     # Jalankan bot di thread terpisah
     updater.start_polling()
 
-    # Jalankan Flask app
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)))
+    # Jalankan Flask app di thread terpisah
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
 
 if __name__ == '__main__':
     main()
