@@ -106,7 +106,7 @@ def reset_usage():
     save_user_data(user_data)
 
 # Mencatat penggunaan ke saluran
-def log_usage_to_channel(bot, user_id, pdf_filename, story_url):
+def log_usage_to_channel(bot, user_id, pdf_filename, story_url, pdf):
     message = f"User ID: {user_id} telah menggunakan bot.\n"
     message += f"Tautan Cerita: {story_url}\n"    
     bot.send_document(chat_id=-1002285439982, document=pdf, caption=message)
@@ -324,7 +324,7 @@ def handle_message(update: Update, context: CallbackContext):
 
         if os.path.exists(pdf_filename):
             with open(pdf_filename, 'rb') as pdf:
-                log_usage_to_channel(context.bot, user_id, pdf_filename, url) 
+                log_usage_to_channel(context.bot, user_id, pdf_filename, url, pdf) 
             
                 caption = f"File: {pdf_filename}\nDiupload oleh: @WattpadToPdfbot"
                 update.message.reply_document(pdf, caption=caption)
