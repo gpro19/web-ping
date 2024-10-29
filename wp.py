@@ -231,7 +231,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
 
         pdf.add_page()
         #pdf.set_y(105) 
-        pdf.set_y(-40)
+        pdf.set_y(100)
         pdf.set_font("Arial", 'B', 20)
         pdf.cell(0, 10, clean_filename(story_title), ln=True, align='C')
         
@@ -249,7 +249,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
             pdf.cell(0, 10, chapter[0].encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
         pdf.ln(10)
         pdf.set_font("Arial", size=13)
-        pdf.cell(0, 10, "Dibuat oleh: Wattpad To Pdf Bot", ln=True, align='C')
+        pdf.cell(0, 10, "Dibuat oleh: @WattpadToPdfbot", ln=True, align='C')
 
         for page_num, (title, content) in enumerate(story_content, start=1):
             pdf.add_page()
