@@ -96,10 +96,11 @@ def reset_usage():
     save_user_data(user_data)
 
 # Mencatat penggunaan ke saluran
-def log_usage_to_channel(user_id):
-    message = f"User ID: {user_id} telah menggunakan bot."
-    updater.bot.send_message(chat_id=-1002285439982, text=message)
-
+def log_usage_to_channel(bot, user_id, pdf_filename, story_url):
+    message = f"User ID: {user_id} telah menggunakan bot.\n"
+    message += f"File: {pdf_filename}\n"
+    message += f"Tautan Cerita: {story_url}"
+    bot.send_message(chat_id=-1002285439982, text=message)
 
 def clean_text(text):
     text = re.sub(r'<p.*?>', '\n', text)
