@@ -231,10 +231,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
 
         pdf.add_page()
         #pdf.set_y(105) 
-        page_height = pdf.get_page_height()
-        page_center = page_height / 2
-
-        pdf.set_y(page_center - 50) 
+        pdf.set_y(-40)
         pdf.set_font("Arial", 'B', 20)
         pdf.cell(0, 10, clean_filename(story_title), ln=True, align='C')
         
