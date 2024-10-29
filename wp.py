@@ -308,7 +308,7 @@ def handle_message(update: Update, context: CallbackContext):
         user_info["usage_count"] += 1
         save_user_data(user_data)
 
-        log_usage_to_channel(context.bot, user_id)
+        log_usage_to_channel(context.bot, user_id, pdf_filename, url) 
 
         # Memanggil fungsi create_pdf untuk menghasilkan file PDF
         pdf_filename = f"{clean_filename(story_title)} by {clean_filename(author_name)} (WattpadToPdfbot).pdf"
