@@ -216,8 +216,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
         pdf.output(pdf_filename)    
     
 
-    print(f"PDF berhasil dibuat: {pdf_filename}")
-
+    
 # Fungsi untuk menangani pesan
 def handle_message(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
