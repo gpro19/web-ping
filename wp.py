@@ -40,7 +40,6 @@ def download_image(image_url):
             f.write(response.content)
         return image_filename
     except Exception as e:
-        print(f"Error downloading image: {e}")
         return None
 
 def extract_wattpad_story(story_url):
@@ -53,7 +52,6 @@ def extract_wattpad_story(story_url):
         response.raise_for_status()
         html_content = response.text
     except Exception as e:
-        print(f"Error fetching story: {e}")
         return [], [], "", "", ""
 
     soup = BeautifulSoup(html_content, 'html.parser')
@@ -97,7 +95,6 @@ def extract_wattpad_story(story_url):
 
             story_content.append((chapter_title, ''.join(chapter_content)))
         except Exception as e:
-            print(f"Error processing chapter {title}: {e}")
             continue
 
     return chapters, story_content, image_url, author_name, story_title
@@ -122,10 +119,11 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
     pdf.set_y(105)
     pdf.set_font("Arial", 'B', 24)
     pdf.cell(0, 10, story_title, ln=True, align='C')
-    pdf.set_font("Arial", 'I', 18)
-    pdf.cell(0, 10, f"Oleh {author_name}", ln=True, align='C')
-    pdf.cell(0, 10, f"Tahun Terbit: {datetime.now().year}", ln=True, align='C')
-    pdf.cell(0, 10, f"Tanggal Cetak: {datetime.now().strftime('%d %B %Y')}", ln=True, align='C')
+    pdf.ln(10)
+    pdf.set_font("Arial", size=16)
+    pdf.cell(0, 10, f"Penulis {author_name}", ln=True, align='C')
+    pdf.cell(0, 10, f"Tahun Terbit: {datetime.now().year}", ln=True, align='C')  # Tahun terbit otomatis
+    pdf.cell(0, 10, f"Tanggal Cetak: {datetime.now().strftime('%d %B %Y')}", ln=True, align='C')  # Tanggal cetak otomatis
     pdf.ln(10)
 
     pdf.set_font("Arial", 'B', 20)
@@ -134,13 +132,13 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
     for chapter in chapters:
         pdf.cell(0, 10, chapter[0], ln=True, align='C')
     pdf.ln(10)
-    pdf.set_font("Arial", 'I', 16)
+    pdf.set_font("Arial", size=16)
     pdf.cell(0, 10, "Dibuat oleh: Wattpad Bot", ln=True, align='C')
 
     for page_num, (title, content) in enumerate(story_content, start=1):
         pdf.add_page()
         pdf.set_font("Arial", 'B', 27)
-        pdf.multi_cell(0, 10, title, align='C')
+        pdf.multi_cell(0, 10, title.encode('latin-1', 'replace').decode('latin-1'), align='C')
         pdf.ln(5)
         pdf.set_font("Arial", 'I', 15)
         pdf.cell(0, 10, f"Oleh {author_name}", ln=True, align='C')
@@ -194,6 +192,7 @@ def webhook():
     return '', 200
 
 def main():
+    # Inisialisasi bot Telegram
     updater = Updater("6308990102:AAFH_eAfo4imTAWnQ5CZeDUFNAC35rytnT0")
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
