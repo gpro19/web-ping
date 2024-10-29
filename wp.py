@@ -132,10 +132,11 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
             pdf.ln(5)
 
         pdf.add_page()
-        pdf.set_y(105)
+        #pdf.set_y(105)       
         pdf.set_font("Arial", 'B', 20)
-        pdf.cell(0, 10, story_title, ln=True, align='C')
-        pdf.ln(10)
+        pdf.cell(0, 10, clean_filename(story_title), ln=True, align='C')
+        
+        pdf.ln(5)
         pdf.set_font("Arial", size=14)
         pdf.cell(0, 10, f"Penulis {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
         pdf.cell(0, 10, f"Tahun Terbit: {datetime.now().year}", ln=True, align='C')  
@@ -154,7 +155,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
         for page_num, (title, content) in enumerate(story_content, start=1):
             pdf.add_page()
             pdf.set_font("Arial", 'B', 25)
-            pdf.multi_cell(0, 10, title, align='C')
+            pdf.multi_cell(0, 10, clean_filename(title), align='C')
             pdf.ln(5)
             pdf.set_font("Arial", 'I', 15)
             pdf.cell(0, 10, f"Oleh {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
@@ -195,7 +196,7 @@ def handle_message(update: Update, context: CallbackContext):
             update.message.reply_text('Gagal mengambil cerita. Pastikan URL Wattpad valid.')
             return
 
-        pdf_filename = f"{clean_filename(story_title)} by {clean_filename(author_name)}(WattpadToPdfbot).pdf"
+        pdf_filename = f"{clean_filename(story_title)} by {clean_filename(author_name)} (WattpadToPdfbot).pdf"
         create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
         
         if os.path.exists(pdf_filename):
