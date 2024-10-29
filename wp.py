@@ -101,7 +101,6 @@ def extract_wattpad_story(story_url):
             for i in range(1, pages + 1):
                 page_url = f"{chapter_url}/page/{i}"
                 page_content = get_page(page_url)
-                page_content = re.sub(r'<h1 class="h2">.*?</h1>', '', page_content)
                 chapter_content.append('<div class="page">\n')
                 chapter_content.append(page_content)
                 chapter_content.append('</div>\n')
@@ -122,62 +121,63 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
     pdf = FPDF()
     pdf.set_margins(left=15, top=15, right=15)
     pdf.set_auto_page_break(auto=True, margin=15)
-    downloaded_image = download_image(image_url)
 
-    if downloaded_image:
+    try:
+        downloaded_image = download_image(image_url)
+        if downloaded_image:
+            pdf.add_page()
+            pdf.image(downloaded_image, x=0, y=0, w=pdf.w, h=pdf.h)
+            pdf.ln(5)
+
         pdf.add_page()
-        pdf.image(downloaded_image, x=0, y=0, w=pdf.w, h=pdf.h)
-        pdf.ln(5)
-
-    pdf.add_page()
-    pdf.set_y(105)
-    pdf.set_font("Arial", 'B', 24)
-    pdf.cell(0, 10, story_title.encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
-    pdf.ln(10)
-    pdf.set_font("Arial", size=16)
-    pdf.cell(0, 10, f"Penulis {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
-    pdf.cell(0, 10, f"Tahun Terbit: {datetime.now().year}", ln=True, align='C')  # Tahun terbit otomatis
-    pdf.cell(0, 10, f"Tanggal Cetak: {datetime.now().strftime('%d %B %Y')}", ln=True, align='C')  # Tanggal cetak otomatis
-    pdf.ln(10)
-
-    pdf.set_font("Arial", 'B', 20)
-    pdf.cell(0, 10, "Daftar Bab", ln=True, align='C')
-    pdf.set_font("Arial", size=16)
-    for chapter in chapters:
-        pdf.cell(0, 10, chapter[0].encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
-    pdf.ln(10)
-    pdf.set_font("Arial", size=16)
-    pdf.cell(0, 10, "Dibuat oleh: Wattpad Bot", ln=True, align='C')
-
-    for page_num, (title, content) in enumerate(story_content, start=1):
-        pdf.add_page()
-        pdf.set_font("Arial", 'B', 27)
-        pdf.multi_cell(0, 10, title.encode('latin-1', 'replace').decode('latin-1'), align='C')
-        pdf.ln(5)
-        pdf.set_font("Arial", 'I', 15)
-        pdf.cell(0, 10, f"Oleh {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
+        pdf.set_y(105)
+        pdf.set_font("Arial", 'B', 24)
+        pdf.cell(0, 10, story_title.encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
+        pdf.ln(10)
+        pdf.set_font("Arial", size=16)
+        pdf.cell(0, 10, f"Penulis {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
+        pdf.cell(0, 10, f"Tahun Terbit: {datetime.now().year}", ln=True, align='C')  
+        pdf.cell(0, 10, f"Tanggal Cetak: {datetime.now().strftime('%d %B %Y')}", ln=True, align='C')  
         pdf.ln(10)
 
-        cleaned_content = re.sub(r'<[^>]+>', '', content)
-        formatted_content = format_content(cleaned_content)
-        pdf.set_font("Arial", size=20)
-        paragraphs = formatted_content.split('\n')
+        pdf.set_font("Arial", 'B', 20)
+        pdf.cell(0, 10, "Daftar Bab", ln=True, align='C')
+        pdf.set_font("Arial", size=16)
+        for chapter in chapters:
+            pdf.cell(0, 10, chapter[0].encode('latin-1', 'replace').decode('latin-1'), ln=True, align='C')
+        pdf.ln(10)
+        pdf.set_font("Arial", size=16)
+        pdf.cell(0, 10, "Dibuat oleh: Wattpad Bot", ln=True, align='C')
 
-        for paragraph in paragraphs:
-            if paragraph.strip():
-                pdf.multi_cell(0, 10, paragraph.encode('latin-1', 'replace').decode('latin-1'), align='L')
-                pdf.ln(5)
-        pdf.set_y(-25)
-        pdf.set_font("Arial", size=15)
-        pdf.cell(0, 10, story_title.encode('latin-1', 'replace').decode('latin-1'), ln=False, align='L')
-        pdf.set_x(pdf.w - 15)
-        pdf.cell(0, 10, f"WATTPAD BOT | {page_num}", ln=True, align='R')
+        for page_num, (title, content) in enumerate(story_content, start=1):
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 27)
+            pdf.multi_cell(0, 10, title.encode('latin-1', 'replace').decode('latin-1'), align='C')
+            pdf.ln(5)
+            pdf.set_font("Arial", 'I', 15)
+            pdf.cell(0, 10, f"Oleh {author_name.encode('latin-1', 'replace').decode('latin-1')}", ln=True, align='C')
+            pdf.ln(10)
 
-    pdf.output(pdf_filename)
+            cleaned_content = re.sub(r'<[^>]+>', '', content)
+            formatted_content = format_content(cleaned_content)
+            pdf.set_font("Arial", size=20)
+            paragraphs = formatted_content.split('\n')
 
-    # Hapus file setelah pengiriman
-    if os.path.exists(pdf_filename):
-        os.remove(pdf_filename)
+            for paragraph in paragraphs:
+                if paragraph.strip():
+                    pdf.multi_cell(0, 10, paragraph.encode('latin-1', 'replace').decode('latin-1'), align='L')
+                    pdf.ln(5)
+
+            pdf.set_y(-25)
+            pdf.set_font("Arial", size=15)
+            pdf.cell(0, 10, story_title.encode('latin-1', 'replace').decode('latin-1'), ln=False, align='L')
+            pdf.set_x(pdf.w - 15)
+            pdf.cell(0, 10, f"WATTPAD BOT | {page_num}", ln=True, align='R')
+
+        pdf.output(pdf_filename)
+
+    except Exception as e:
+        print(f"Error creating PDF: {e}")
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text('Kirimkan link cerita Wattpad yang ingin Anda konversi ke PDF.')
@@ -185,7 +185,6 @@ def start(update: Update, context: CallbackContext):
 def handle_message(update: Update, context: CallbackContext):
     if update.message and update.message.text:
         url = update.message.text
-        # Mengirim pesan proses konversi
         message = update.message.reply_text('Proses konversi sedang berlangsung, mohon tunggu...')
         chapters, story_content, image_url, author_name, story_title = extract_wattpad_story(url)
 
@@ -193,13 +192,15 @@ def handle_message(update: Update, context: CallbackContext):
             update.message.reply_text('Gagal mengambil cerita. Pastikan URL Wattpad valid.')
             return
 
-        pdf_filename = f"{story_title} by {author_name}.pdf"
+        pdf_filename = f"{clean_filename(story_title)} by {clean_filename(author_name)}.pdf"
         create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
         
-        with open(pdf_filename, 'rb') as pdf:
-            update.message.reply_document(pdf)
+        if os.path.exists(pdf_filename):
+            with open(pdf_filename, 'rb') as pdf:
+                update.message.reply_document(pdf)
+        else:
+            update.message.reply_text('File PDF tidak dapat dibuat.')
         
-        # Hapus pesan proses konversi setelah pengiriman PDF
         context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id)
     else:
         print("Received update does not contain a message or text.")
