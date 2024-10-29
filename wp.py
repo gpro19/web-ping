@@ -55,7 +55,14 @@ def handle_admin_commands(update: Update, context: CallbackContext):
         return
 
     command = context.args[0] if context.args else None
-    target_user_id = int(context.args[1]) if len(context.args) > 1 else None
+    target_user_id = None
+
+    if len(context.args) > 1:
+        try:
+            target_user_id = int(context.args[1])
+        except ValueError:
+            update.message.reply_text('Target user ID tidak valid. Harap masukkan angka yang benar.')
+            return
 
     if command == "addpremium" and target_user_id:
         add_premium_member(target_user_id)
@@ -65,7 +72,7 @@ def handle_admin_commands(update: Update, context: CallbackContext):
         update.message.reply_text(f'User ID {target_user_id} telah dihapus dari premium.')
     else:
         update.message.reply_text('Perintah tidak dikenali atau parameter tidak valid.')
-
+        
 def is_valid_url(url):
     return re.match(r'^(http://|https://)', url) is not None
 
