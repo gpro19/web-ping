@@ -185,11 +185,14 @@ def handle_message(update: Update, context: CallbackContext):
         pdf_filename = f"{story_title} by {author_name}.pdf"
         create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename)
         
-        with open(pdf_filename, 'rb') as pdf:
-            update.message.reply_document(pdf)
-        
-        # Hapus pesan proses konversi setelah pengiriman PDF
-        context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id)
+        # Memeriksa jika file PDF ada sebelum membukanya
+        if os.path.exists(pdf_filename):
+            with open(pdf_filename, 'rb') as pdf:
+                update.message.reply_document(pdf)
+            # Hapus pesan proses konversi setelah pengiriman PDF
+            context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id)
+        else:
+            update.message.reply_text('PDF gagal dibuat. Silakan coba lagi.')
     else:
         print("Received update does not contain a message or text.")
 
