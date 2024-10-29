@@ -234,7 +234,7 @@ def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf
 
         pdf.add_page()
         #pdf.set_y(105) 
-        pdf.set_y(100)
+        pdf.set_y(50)
         pdf.set_font("Arial", 'B', 20)
         pdf.cell(0, 10, clean_filename(story_title), ln=True, align='C')
         
@@ -323,7 +323,9 @@ def handle_message(update: Update, context: CallbackContext):
         if os.path.exists(pdf_filename):
             log_usage_to_channel(context.bot, user_id, pdf_filename, url) 
             with open(pdf_filename, 'rb') as pdf:
-                update.message.reply_document(pdf)
+                
+                caption = f"File: {pdf_filename}\nDiupload oleh: @WattpadToPdfbot"
+                update.message.reply_document(pdf, caption=caption)
         else:
             update.message.reply_text('File PDF tidak dapat dibuat.')
 
