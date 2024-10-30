@@ -292,7 +292,7 @@ def handle_message(update: Update, context: CallbackContext):
     user_data = load_user_data()
     user_info = user_data["users"][str(user_id)]
 
-    if not is_premium_user(user_id) and user_info["usage_count"] >= 1:
+    if not is_premium_user(user_id) and user_info["usage_count"] >= 2:
         update.message.reply_text('Anda telah mencapai batas penggunaan harian. Silakan coba lagi besok.')
         return
 
@@ -337,7 +337,7 @@ def handle_message(update: Update, context: CallbackContext):
 def start(update: Update, context: CallbackContext):
     welcome_message = (
         "Selamat datang di Wattpad To PDF Bot! Kirimkan URL cerita Wattpad yang ingin Anda konversi ke PDF.\n"
-        "Anda hanya dapat menggunakan bot ini untuk mengonversi cerita satu kali sehari."
+        "Anda hanya dapat menggunakan bot ini untuk mengonversi cerita dua kali sehari."
     )
     update.message.reply_text(welcome_message)
 
