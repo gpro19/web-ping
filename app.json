@@ -1,15 +1,24 @@
 {
-  "name": "Wattpad To PDF Bot",
-  "description": "A bot that converts Wattpad stories to PDF.",
-  "keywords": ["telegram", "bot", "wattpad", "pdf"]
-  },
-  "addons": [],
-  "buildpacks": [
+    "name": "♨️Duta UserBot♨️",
+    "description": "Pluggable telegram userbot, made in python using Telethon.",
+    "logo": "https://graph.org/file/031957757a4f6a5191040.jpg",
+    "stack": "heroku-24",
+    "repository": "https://github.com/JagoanRedesign/devuserbot1",
+    "website": "https://ultroid.tech",
+    "success_url": "https://t.me/TeamUltroid",
+    "stack": "container",
+      "buildpacks": [
     {
       "url": "heroku/python"
+    },
+    {
+      "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git"
     }
   ],
-  "scripts": {
-    "postdeploy": "echo 'Deployment complete!'"
-  }
+    "formation": {
+        "worker": {
+            "quantity": 1,
+            "size": "basic"
+        }
+    }
 }
