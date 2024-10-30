@@ -1,0 +1,15 @@
+{
+  "name": "Wattpad To PDF Bot",
+  "description": "A bot that converts Wattpad stories to PDF.",
+  "keywords": ["telegram", "bot", "wattpad", "pdf"]
+  },
+  "addons": [],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "scripts": {
+    "postdeploy": "echo 'Deployment complete!'"
+  }
+}
