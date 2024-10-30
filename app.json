@@ -4,7 +4,6 @@
     "logo": "https://graph.org/file/031957757a4f6a5191040.jpg",
     "stack": "container",
     "repository": "https://github.com/gpro19/Konyol",
-    "website": "https://ultroid.tech",
     "success_url": "https://t.me/TeamUltroid",
     "buildpacks": [
         {
@@ -17,7 +16,7 @@
     "formation": {
         "worker": {
             "quantity": 1,
-            "size": "echo"
+            "size": "basic"
         }
     }
 }
