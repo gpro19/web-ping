@@ -371,7 +371,7 @@ def run_flask():
 
 def main():
     # Inisialisasi bot Telegram
-    updater = Updater("8079725112:AAHnpBTTWz_fpJPhW8Pv3vEcZHnlOQhXYlg")
+    updater = Updater("7698381625:AAFtPleOWtTjYXSX5sP4HJw-LGRZIWJ-q6A")
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("admin", handle_admin_commands))  # Menambahkan handler untuk perintah admin
