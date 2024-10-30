@@ -321,9 +321,9 @@ def handle_message(update: Update, context: CallbackContext):
 
         if os.path.exists(pdf_filename):           
             with open(pdf_filename, 'rb') as pdf:
-                log_usage_to_channel(context.bot, user_id, pdf_filename, url, pdf) 
-                caption = f"File: {pdf_filename}\nDiupload oleh: @WattpadToPdfbot"
-                update.message.reply_document(pdf, caption=caption)
+              caption = f"File: {pdf_filename}\nDiupload oleh: @WattpadToPdfbot"
+              rs = update.message.reply_document(pdf, caption=caption)
+              log_usage_to_channel(context.bot, user_id, pdf_filename, url, rs.file_id)
         else:
             update.message.reply_text('File PDF tidak dapat dibuat.')
 
