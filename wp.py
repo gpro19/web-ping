@@ -215,9 +215,9 @@ def extract_wattpad_story(story_url):
     return chapters, story_content, image_url, author_name, story_title
 
 def format_content(content):
-    content = re.sub(r'[^\x20-\x7E]', '', content)
+    content = re.sub(r'[^\x20-\x7E\n]', '', content)  # Menambahkan \n ke dalam rentang yang diperbolehkan
     sentences = re.split(r'(?<=[.!?]) +', content)
-    return '\n'.join(sentences)
+    return ''.join(sentences)
 
 def create_pdf(chapters, story_content, image_url, author_name, story_title, pdf_filename):
     pdf = FPDF()
@@ -292,7 +292,7 @@ def handle_message(update: Update, context: CallbackContext):
     user_data = load_user_data()
     user_info = user_data["users"][str(user_id)]
 
-    if not is_premium_user(user_id) and user_info["usage_count"] >= 2:
+    if not is_premium_user(user_id) and user_info["usage_count"] >= 1:
         update.message.reply_text('Anda telah mencapai batas penggunaan harian. Silakan coba lagi besok.')
         return
 
