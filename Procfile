@@ -1,1 +1,1 @@
-worker: python wp.py
+worker: python3 wp.py
