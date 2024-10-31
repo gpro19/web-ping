@@ -11,8 +11,8 @@ app = Flask(__name__)
 # Variabel global untuk menyimpan konten penerbit terakhir
 previous_issuer_content = 'Tidak ada'
 
-telegram_bot_token = '7550906536:AAHCsudygDNhTUccm3JpmvqA21Br5WqM1dI'  # Ganti dengan token bot Anda
-chat_id = '-1002417353710'  # Ganti dengan chat ID Anda
+telegram_bot_token = '7260464963:AAFv6FdukbICEi2IYjsHUxRj2zJZJ_xq8hc'  # Ganti dengan token bot Anda
+chat_id = ''  # Ganti dengan chat ID Anda
 
 def generate_random_ip():
     return f"{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
@@ -54,11 +54,11 @@ def extract_title_content(title_html):
 
 def send_notification(issuer_content, title_new):
     text_message = (f"<b>New Token Alert</b>\n"
-                    f"<b>📈 {title_new}</b>\n"
+                    f"<b>🔥 {title_new}</b>\n"
                     f"<code>{issuer_content}</code>\n"
                     f"<b><a href='https://t.me/firstledger_bot?start=FLDEEPLINK_{title_new}-{issuer_content}'>Buy with First Ledger</a></b>")
     
-    send_text(chat_id, text_message)
+    send_text(-1002417353710, text_message)
 
 def send_text(chat_id, text):
     payload = {
