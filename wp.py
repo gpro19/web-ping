@@ -11,8 +11,26 @@ app = Flask(__name__)
 # Variabel global untuk menyimpan konten penerbit terakhir
 previous_issuer_content = 'Tidak ada'
 
-telegram_bot_token = '7260464963:AAFv6FdukbICEi2IYjsHUxRj2zJZJ_xq8hc'  # Ganti dengan token bot Anda
-  # Ganti dengan chat ID Anda
+
+
+
+def send_pesan(chat_id, text_message):
+
+
+    payload = {
+        'chat_id': str(chat_id),
+        'parse_mode': 'HTML',
+        'text': text_message,
+        'message_thread_id': 26  # Jika Anda menggunakan thread, pastikan ini sesuai
+    }
+
+    # URL untuk mengirim pesan ke Telegram bot
+    url = "https://api.telegram.org/bot7550906536:AAHCsudygDNhTUccm3JpmvqA21Br5WqM1dI/sendMessage"
+
+    # Mengirim permintaan POST
+    response = requests.post(url, json=payload)
+    return response  # Mungkin perlu memeriksa respons
+
 
 def generate_random_ip():
     return f"{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
@@ -58,7 +76,13 @@ def send_notification(issuer_content, title_new):
                     f"<code>{issuer_content}</code>\n"
                     f"<b><a href='https://t.me/firstledger_bot?start=FLDEEPLINK_{title_new}-{issuer_content}'>Buy with First Ledger</a></b>")
     
-    send_text(-1002417353710, text_message)
+    send_text(-1002448557341, text_message)
+
+
+
+
+
+
 
 def send_text(chatid, text):
     payload = {
