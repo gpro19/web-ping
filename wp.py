@@ -12,7 +12,7 @@ app = Flask(__name__)
 previous_issuer_content = 'Tidak ada'
 
 telegram_bot_token = '7550906536:AAHCsudygDNhTUccm3JpmvqA21Br5WqM1dI'  # Ganti dengan token bot Anda
-chat_id = '-1002417353710' # Ganti dengan chat ID Anda
+chat_id = '-1002417353710'  # Ganti dengan chat ID Anda
 
 def generate_random_ip():
     return f"{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
@@ -29,6 +29,19 @@ def generate_random_user_agent():
     return (f"Mozilla/5.0 (Linux; Android {random.choice(android_versions)}; {selected_model} "
             f"Build/{selected_build}) AppleWebKit/537.36 (KHTML, like Gecko) {chrome_version} "
             "Mobile Safari/537.36 WhatsApp/1.{random.randint(1, 9)}.{random.randint(1, 9)}")
+
+def generate_random_referer():
+    referers = [
+        "https://www.google.com/",
+        "https://www.bing.com/",
+        "https://www.yahoo.com/",
+        "https://www.example.com/",
+        "https://www.wikipedia.org/",
+        "https://firstledger.net/",
+        "https://www.reddit.com/",
+        "https://www.quora.com/"
+    ]
+    return random.choice(referers)
 
 def extract_content(html, class_name):
     regex = re.compile(rf'<div class="{class_name}">\s*(.*?)\s*</div>', re.IGNORECASE)
@@ -68,7 +81,11 @@ def monitor_tokens():
 
     while True:
         try:
-            response = scraper.get(url)
+            headers = {
+                'User-Agent': generate_random_user_agent(),
+                'Referer': generate_random_referer()  # Menggunakan referer acak
+            }
+            response = scraper.get(url, headers=headers)  # Menyertakan headers
             response.raise_for_status()  # Memicu exception jika terjadi kesalahan
             html = response.text
 
@@ -85,7 +102,7 @@ def monitor_tokens():
         except requests.RequestException as error:
             print('Error fetching or processing data:', error)
 
-        time.sleep(10)  # Tunggu 10 detik sebelum melakukan permintaan lagi
+        time.sleep(5)  # Tunggu 10 detik sebelum melakukan permintaan lagi
 
 @app.route('/')
 def index():
