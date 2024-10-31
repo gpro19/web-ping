@@ -60,9 +60,9 @@ def send_notification(issuer_content, title_new):
     
     send_text(-1002417353710, text_message)
 
-def send_text(-1002417353710, text):
+def send_text(chatid, text):
     payload = {
-        'chat_id': str(-1002417353710),
+        'chat_id': str(chatid),
         'parse_mode': 'HTML',
         'text': text,
         'message_thread_id': 26
