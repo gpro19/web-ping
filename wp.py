@@ -53,10 +53,22 @@ def generate_random_referer():
         "https://www.google.com/",
         "https://www.bing.com/",
         "https://www.yahoo.com/",
-        "https://www.mozila.com/",
+        "https://www.mozilla.com/", 
         "https://www.wikipedia.org/",
         "https://firstledger.net/",
         "https://www.reddit.com/",
+        "https://www.quora.com/",
+        "https://www.facebook.com/",
+        "https://www.twitter.com/",
+        "https://www.instagram.com/",
+        "https://www.linkedin.com/",
+        "https://www.amazon.com/",
+        "https://www.netflix.com/",
+        "https://www.github.com/",
+        "https://www.stackoverflow.com/",
+        "https://www.medium.com/",
+        "https://www.pinterest.com/",
+        "https://www.tumblr.com/",
         "https://www.quora.com/"
     ]
     return random.choice(referers)
