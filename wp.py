@@ -12,7 +12,7 @@ app = Flask(__name__)
 previous_issuer_content = 'Tidak ada'
 
 telegram_bot_token = '7260464963:AAFv6FdukbICEi2IYjsHUxRj2zJZJ_xq8hc'  # Ganti dengan token bot Anda
-chat_id = ''  # Ganti dengan chat ID Anda
+  # Ganti dengan chat ID Anda
 
 def generate_random_ip():
     return f"{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
@@ -35,7 +35,7 @@ def generate_random_referer():
         "https://www.google.com/",
         "https://www.bing.com/",
         "https://www.yahoo.com/",
-        "https://www.example.com/",
+        "https://www.mozila.com/",
         "https://www.wikipedia.org/",
         "https://firstledger.net/",
         "https://www.reddit.com/",
@@ -60,19 +60,20 @@ def send_notification(issuer_content, title_new):
     
     send_text(-1002417353710, text_message)
 
-def send_text(chat_id, text):
+def send_text(-1002417353710, text):
     payload = {
-        'chat_id': str(chat_id),
+        'chat_id': str(-1002417353710),
         'parse_mode': 'HTML',
         'text': text,
         'message_thread_id': 26
     }
     
-    url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
+    url = f"https://api.telegram.org/bot7550906536:AAHCsudygDNhTUccm3JpmvqA21Br5WqM1dI/sendMessage"
 
     response = requests.post(url, json=payload)
     if response.status_code != 200:
         print(f"Failed to send message: {response.text}")
+
 
 def monitor_tokens():
     global previous_issuer_content
@@ -97,7 +98,7 @@ def monitor_tokens():
             if issuer_content != previous_issuer_content and issuer_content != 'Tidak ada':
                 send_notification(issuer_content, title_new)
                 previous_issuer_content = issuer_content
-                print('Sukses Mengirim:', title_new)
+                print('🔥 Sukses Mengirim:', title_new)
         
         except requests.RequestException as error:
             print('Error fetching or processing data:', error)
