@@ -4,6 +4,8 @@ import re
 from flask import Flask, jsonify
 import threading
 import time
+from datetime import datetime
+import pytz
 import cloudscraper  # Import cloudscraper
 
 app = Flask(__name__)
@@ -14,22 +16,7 @@ previous_issuer_content = 'Tidak ada'
 
 
 
-def send_pesan(chat_id, text_message):
 
-
-    payload = {
-        'chat_id': str(chat_id),
-        'parse_mode': 'HTML',
-        'text': text_message,
-        'message_thread_id': 26  # Jika Anda menggunakan thread, pastikan ini sesuai
-    }
-
-    # URL untuk mengirim pesan ke Telegram bot
-    url = "https://api.telegram.org/bot7550906536:AAHCsudygDNhTUccm3JpmvqA21Br5WqM1dI/sendMessage"
-
-    # Mengirim permintaan POST
-    response = requests.post(url, json=payload)
-    return response  # Mungkin perlu memeriksa respons
 
 
 def generate_random_ip():
@@ -116,7 +103,20 @@ def monitor_tokens():
     url = 'https://firstledger.net/tokens'
     scraper = cloudscraper.create_scraper()  # Menggunakan cloudscraper
 
+    # Mengatur zona waktu WIB
+    wib = pytz.timezone('Asia/Jakarta')
+
     while True:
+        # Mendapatkan waktu saat ini dalam WIB
+        current_time = datetime.now(wib)
+        current_hour = current_time.hour
+
+        # Memeriksa apakah waktu saat ini berada antara jam 12 malam hingga 6 pagi
+        if current_hour >= 0 and current_hour < 6:
+            print("Monitoring paused from 12 AM to 6 AM WIB. Waiting...")
+            time.sleep(3600)  # Tunggu selama 1 jam sebelum memeriksa lagi
+            continue  # Kembali ke awal loop
+
         try:
             headers = {
                 'User-Agent': generate_random_user_agent(),
@@ -139,7 +139,9 @@ def monitor_tokens():
         except requests.RequestException as error:
             print('Error fetching or processing data:', error)
 
-        time.sleep(5)  # Tunggu 10 detik sebelum melakukan permintaan lagi
+        time.sleep(5)  # Tunggu 5 detik sebelum melakukan permintaan lagi
+
+
 
 @app.route('/')
 def index():
