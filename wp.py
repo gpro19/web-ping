@@ -137,7 +137,7 @@ def monitor_tokens():
         except requests.RequestException as error:
             print('Error fetching or processing data:', error)
 
-        time.sleep(3)  # Tunggu 5 detik sebelum melakukan permintaan lagi
+        time.sleep(1.5)  # Tunggu 5 detik sebelum melakukan permintaan lagi
 
 
 
