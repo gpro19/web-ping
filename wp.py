@@ -188,5 +188,5 @@ def main():
 
 if __name__ == "__main__":
     # Menjalankan Flask di thread terpisah
-    threading.Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 5000}, daemon=True).start()
+    threading.Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 8000}, daemon=True).start()
     main()
