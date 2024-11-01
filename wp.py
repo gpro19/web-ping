@@ -8,7 +8,6 @@ import pytz
 import cloudscraper
 from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ApplicationBuilder, CallbackContext, CallbackQueryHandler
-
 from flask import Flask, request
 
 # Variabel Global
@@ -67,23 +66,23 @@ def extract_content(html, class_name):
     return match.group(1).strip() if match else 'Tidak ada'
 
 # Fungsi untuk mengirim notifikasi ke Telegram
-def send_notification(bot: Bot, issuer_content, title_new):
+async def send_notification(bot: Bot, issuer_content, title_new):
     text_message = (f"<b>New Token Alert</b>\n"
                     f"<b>🔥 {title_new}</b>\n"
                     f"<code>{issuer_content}</code>\n"
                     f"<b><a href='https://t.me/firstledger_bot?start=FLDEEPLINK_{title_new}-{issuer_content}'>Buy with First Ledger</a></b>")
     
-    bot.send_message(chat_id=chat_id, text=text_message, parse_mode='HTML')
+    await bot.send_message(chat_id=chat_id, text=text_message, parse_mode='HTML')
 
 # Fungsi untuk memantau token
-def monitor_tokens(bot: Bot):
+async def monitor_tokens(bot: Bot):
     global previous_issuer_content
     url = 'https://firstledger.net/tokens'
     scraper = cloudscraper.create_scraper()  
 
     while True:
         if not scraping_enabled:
-            time.sleep(5)
+            await asyncio.sleep(5)
             continue
 
         try:
@@ -99,32 +98,32 @@ def monitor_tokens(bot: Bot):
             title_content = extract_content(html, 'title')
 
             if issuer_content != previous_issuer_content and issuer_content != 'Tidak ada':
-                send_notification(bot, issuer_content, title_content)
+                await send_notification(bot, issuer_content, title_content)
                 previous_issuer_content = issuer_content
                 print('🔥 Sukses Mengirim:', title_content)
         
         except requests.RequestException as error:
             print('Error fetching or processing data:', error)
 
-        time.sleep(delay_time)
+        await asyncio.sleep(delay_time)
 
 # Fungsi untuk mengatur chat ID
-def set_chat_id(update: Update, context: CallbackContext):
+async def set_chat_id(update: Update, context: CallbackContext):
     global chat_id
     chat_id = update.message.chat.id
-    update.message.reply_text(f"Chat ID telah diset: {chat_id}")
+    await update.message.reply_text(f"Chat ID telah diset: {chat_id}")
 
 # Fungsi untuk mengatur delay
-def set_delay(update: Update, context: CallbackContext):
+async def set_delay(update: Update, context: CallbackContext):
     global delay_time
     if context.args:
         delay_time = int(context.args[0])
-        update.message.reply_text(f"Delay time telah diset ke {delay_time} detik.")
+        await update.message.reply_text(f"Delay time telah diset ke {delay_time} detik.")
     else:
-        update.message.reply_text("Silakan masukkan waktu delay dalam detik.")
+        await update.message.reply_text("Silakan masukkan waktu delay dalam detik.")
 
 # Fungsi untuk membuat tombol untuk toggle scraping
-def alerts(update: Update, context: CallbackContext):
+async def alerts(update: Update, context: CallbackContext):
     global scraping_enabled
     scraping_enabled = not scraping_enabled
     status = "diaktifkan" if scraping_enabled else "dinonaktifkan"
@@ -134,20 +133,20 @@ def alerts(update: Update, context: CallbackContext):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    update.message.reply_text(f"Scraping telah {status}.", reply_markup=reply_markup)
+    await update.message.reply_text(f"Scraping telah {status}.", reply_markup=reply_markup)
 
 # Fungsi untuk menangani callback dari tombol
-def button(update: Update, context: CallbackContext):
+async def button(update: Update, context: CallbackContext):
     query = update.callback_query
     global scraping_enabled
     
     if query.data == 'alerts':
         scraping_enabled = not scraping_enabled
         status = "diaktifkan" if scraping_enabled else "dinonaktifkan"
-        query.edit_message_text(text=f"Scraping telah {status}.")
+        await query.edit_message_text(text=f"Scraping telah {status}.")
 
 # Fungsi untuk menampilkan bantuan
-def help_command(update: Update, context: CallbackContext):
+async def help_command(update: Update, context: CallbackContext):
     help_text = (
         "Ini adalah bot untuk memantau token baru.\n\n"
         "Perintah yang tersedia:\n"
@@ -156,7 +155,7 @@ def help_command(update: Update, context: CallbackContext):
         "/alerts - Hidupkan atau matikan fitur scraping dengan tombol.\n"
         "/help - Tampilkan pesan bantuan ini."
     )
-    update.message.reply_text(help_text)
+    await update.message.reply_text(help_text)
 
 # Endpoint Flask untuk menerima permintaan
 @app.route('/webhook', methods=['POST'])
