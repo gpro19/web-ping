@@ -3,3 +3,4 @@ requests
 python-dotenv
 cloudscraper
 pytz
+python-telegram-bot==13.7
