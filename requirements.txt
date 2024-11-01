@@ -4,4 +4,5 @@ python-dotenv
 cloudscraper
 pytz
 python-telegram-bot==20.0
+urllib3
 
