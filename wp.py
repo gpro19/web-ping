@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 import pytz
 import cloudscraper
-from telegram import Update, Bot
+from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ApplicationBuilder, CallbackContext, CallbackQueryHandler
 
 from flask import Flask, request
@@ -16,7 +16,6 @@ previous_issuer_content = 'Tidak ada'
 scraping_enabled = True
 chat_id = None
 delay_time = 5  # Default delay time in seconds
-
 
 # Inisialisasi Flask
 app = Flask(__name__)
@@ -112,7 +111,7 @@ def monitor_tokens(bot: Bot):
 # Fungsi untuk mengatur chat ID
 def set_chat_id(update: Update, context: CallbackContext):
     global chat_id
-    chat_id = update.message.chat_id
+    chat_id = update.message.chat.id
     update.message.reply_text(f"Chat ID telah diset: {chat_id}")
 
 # Fungsi untuk mengatur delay
@@ -131,7 +130,7 @@ def alerts(update: Update, context: CallbackContext):
     status = "diaktifkan" if scraping_enabled else "dinonaktifkan"
     
     keyboard = [
-        [InlineKeyboardButton("Alerts On Off", callback_data='alerts')]
+        [InlineKeyboardButton("Alerts On/Off", callback_data='alerts')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -170,22 +169,20 @@ def webhook():
 def main():
     global chat_id
     TOKEN = "7550906536:AAHCsudygDNhTUccm3JpmvqA21Br5WqM1dI"  # Ganti dengan token bot Anda
-    updater = Updater(TOKEN, use_context=True)
-    bot = updater.bot
+    application = ApplicationBuilder().token(TOKEN).build()
 
     # Menambahkan handler command
-    updater.dispatcher.add_handler(CommandHandler("set_chat_id", set_chat_id))
-    updater.dispatcher.add_handler(CommandHandler("set_delay", set_delay))
-    updater.dispatcher.add_handler(CommandHandler("alerts", alerts))
-    updater.dispatcher.add_handler(CommandHandler("help", help_command))
-    updater.dispatcher.add_handler(CallbackQueryHandler(button))
+    application.add_handler(CommandHandler("set_chat_id", set_chat_id))
+    application.add_handler(CommandHandler("set_delay", set_delay))
+    application.add_handler(CommandHandler("alerts", alerts))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CallbackQueryHandler(button))
 
     # Memulai monitoring token di thread terpisah
-    threading.Thread(target=monitor_tokens, args=(bot,), daemon=True).start()
+    threading.Thread(target=monitor_tokens, args=(application.bot,), daemon=True).start()
 
     # Menjalankan bot
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == "__main__":
     # Menjalankan Flask di thread terpisah
