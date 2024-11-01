@@ -6,8 +6,9 @@ import time
 from datetime import datetime
 import pytz
 import cloudscraper
-from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CommandHandler, Updater, CallbackContext, CallbackQueryHandler
+from telegram import Update, Bot
+from telegram.ext import CommandHandler, ApplicationBuilder, CallbackContext, CallbackQueryHandler
+
 from flask import Flask, request
 
 # Variabel Global
