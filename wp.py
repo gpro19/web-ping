@@ -6,7 +6,7 @@ import threading
 import time
 from datetime import datetime
 import pytz
-import cloudscraper  # Import cloudscraper
+#import cloudscraper  # Import cloudscraper
 
 app = Flask(__name__)
 
@@ -99,7 +99,7 @@ def send_text(chatid, text):
 def monitor_tokens():
     global previous_issuer_content
     url = 'https://firstledger.net/tokens'
-    scraper = cloudscraper.create_scraper()  # Menggunakan cloudscraper
+    #scraper = cloudscraper.create_scraper()  # Menggunakan cloudscraper
 
     # Mengatur zona waktu WIB
     wib = pytz.timezone('Asia/Jakarta')
@@ -120,14 +120,14 @@ def monitor_tokens():
                 'User-Agent': generate_random_user_agent(),
                 'Referer': generate_random_referer()  # Menggunakan referer acak
             }
-            response = scraper.get(url, headers=headers)  # Menyertakan headers
+            response = requests.get(url, headers=headers)  # Menyertakan headers
             response.raise_for_status()  # Memicu exception jika terjadi kesalahan
             html = response.text
 
             issuer_content = extract_content(html, 'issuer')            
             title_content = extract_title_content(html)
 
-            title_new = title_content.replace('$', '').replace('<!-- -->', '')
+            title_new = title_content.replace('', '').replace('<!-- -->', '')
 
             if issuer_content != previous_issuer_content and issuer_content != 'Tidak ada':
                 send_notification(issuer_content, title_new)
@@ -137,7 +137,7 @@ def monitor_tokens():
         except requests.RequestException as error:
             print('Error fetching or processing data:', error)
 
-        time.sleep(1.5)  # Tunggu 5 detik sebelum melakukan permintaan lagi
+        time.sleep(1)  # Tunggu 1 detik sebelum melakukan permintaan lagi
 
 
 
