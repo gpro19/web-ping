@@ -71,7 +71,7 @@ def send_notification(issuer_content, title_new):
     text_message = (f"<b>New Token Alert</b>\n"
                     f"<b>🔥 {title_new}</b>\n"
                     f"<code>{issuer_content}</code>\n"
-                    f"<b><a href='https://t.me/firstledger_bot?start=FLDEEPLINK_{title_new}-{issuer_content}'>Buy with First Ledger</a></b>")
+                    f"<b><a href='https://t.me/firstledger_bot?start=FLDEEPLINK_-{issuer_content}'>Buy with First Ledger</a></b>")
     
     send_text(-1002448557341, text_message)
 
