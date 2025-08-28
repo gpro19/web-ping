@@ -1,641 +1,712 @@
+fix
+
 let BOT_TOKEN = '';
 let ADMIN_ID = 0;
 let CONFIG = {};
 
 const DEFAULT_CONFIG = {
-  BOT_USERNAME: null,
-  CHANNEL_ID: null,
-  GROUP_ID: null,
-  BATCH_LIMIT: 10,
-  START_TIME: new Date().toISOString(),
-  START_MSG: '<blockquote>👋 Hello {first}\n\nSaya dapat menyimpan file pribadi di Channel Tertentu dan pengguna lain dapat mengaksesnya dari link khusus.</blockquote>'
+    BOT_USERNAME: null,
+    CHANNEL_ID: null,
+    GROUP_ID: null,
+    BATCH_LIMIT: 10,
+    START_TIME: new Date().toISOString(),
+    START_MSG: '<blockquote>👋 Hello {first}\n\nSaya dapat menyimpan file pribadi di Channel Tertentu dan pengguna lain dapat mengaksesnya dari link khusus.</blockquote>',
+    CUSTOM_START_MSG: null,
+    OWNER: 'Admin'
 };
 
 const KV_BOT_CONFIGS = 'BOT_CONFIGS';
-
 const state = {
-  batchState: {}
+    batchState: {}
 };
 
 // Fungsi untuk mengekstrak parameter dari URL
 function extractParamsFromUrl(url) {
-  try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
-
-    // Ekstrak token (format: botTOKEN)
-    if (pathParts.length > 1 && pathParts[pathParts.length - 1].startsWith('bot')) {
-      BOT_TOKEN = pathParts[pathParts.length - 1].substring(3);
+    try {
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/');
+        if (pathParts.length > 1 && pathParts[pathParts.length - 1].startsWith('bot')) {
+            BOT_TOKEN = pathParts[pathParts.length - 1].substring(3);
+        }
+        const queryParams = new URLSearchParams(urlObj.search);
+        ADMIN_ID = parseInt(queryParams.get('admin') || '0');
+        return BOT_TOKEN && ADMIN_ID > 0;
+    } catch (e) {
+        console.error('Error extracting params from URL:', e);
+        return false;
     }
-
-    // Ekstrak admin ID dari query params
-    const queryParams = new URLSearchParams(urlObj.search);
-    ADMIN_ID = parseInt(queryParams.get('admin') || '0');
-
-    return true;
-  } catch (e) {
-    console.error('Error extracting params from URL:', e);
-    return false;
-  }
 }
 
 // Fungsi untuk memuat semua konfigurasi bot dari KV
 function loadAllConfigs() {
-  return BOT_CONFIG.get(KV_BOT_CONFIGS)
-    .then(data => data ? JSON.parse(data) : {})
-    .catch(error => {
-      console.error('Error loading configs:', error);
-      return {};
-    });
+    return BOT_CONFIGS.get(KV_BOT_CONFIGS)
+        .then(data => data ? JSON.parse(data) : {})
+        .catch(error => {
+            console.error('Error loading configs:', error);
+            return {};
+        });
 }
 
 // Fungsi untuk mendapatkan konfigurasi bot saat ini
 function getCurrentBotConfig() {
-  return loadAllConfigs()
-    .then(allConfigs => {
-      CONFIG = allConfigs[BOT_TOKEN] || JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-      return CONFIG;
-    });
+    return loadAllConfigs()
+        .then(allConfigs => {
+            CONFIG = allConfigs[BOT_TOKEN] || JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+            return CONFIG;
+        });
 }
 
 // Fungsi untuk menyimpan semua konfigurasi ke KV
 function saveAllConfigs(allConfigs) {
-  return BOT_CONFIG.put(KV_BOT_CONFIGS, JSON.stringify(allConfigs))
-    .then(() => true)
-    .catch(error => {
-      console.error('Error saving configs:', error);
-      return false;
-    });
+    return BOT_CONFIGS.put(KV_BOT_CONFIGS, JSON.stringify(allConfigs))
+        .then(() => true)
+        .catch(error => {
+            console.error('Error saving configs:', error);
+            return false;
+        });
 }
 
 // Fungsi untuk memperbarui konfigurasi bot saat ini
 function updateCurrentConfig(newConfig) {
-  return loadAllConfigs()
-    .then(allConfigs => {
-      allConfigs[BOT_TOKEN] = { ...(allConfigs[BOT_TOKEN] || DEFAULT_CONFIG), ...newConfig };
-      return saveAllConfigs(allConfigs)
-        .then(success => {
-          if (success) CONFIG = allConfigs[BOT_TOKEN];
-          return success;
+    return loadAllConfigs()
+        .then(allConfigs => {
+            allConfigs[BOT_TOKEN] = { ...(allConfigs[BOT_TOKEN] || DEFAULT_CONFIG), ...newConfig };
+            return saveAllConfigs(allConfigs)
+                .then(success => {
+                    if (success) CONFIG = allConfigs[BOT_TOKEN];
+                    return success;
+                });
         });
-    });
 }
 
 // Fungsi untuk mendapatkan info bot dan mengatur username
 function getBotInfo() {
-  const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getMe`;
-  return fetch(apiUrl)
-    .then(response => response.json())
-    .then(data => {
-      if (data.ok) {
-        CONFIG.BOT_USERNAME = data.result.username;
-        console.log('Bot username set to:', CONFIG.BOT_USERNAME);
-      } else {
-        console.error('Failed to get bot info:', data);
-      }
-    })
-    .catch(error => console.error('Error getting bot info:', error));
+    const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getMe`;
+    return fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                CONFIG.BOT_USERNAME = data.result.username;
+                console.log('Bot username set to:', CONFIG.BOT_USERNAME);
+                return updateCurrentConfig({ BOT_USERNAME: data.result.username });
+            } else {
+                console.error('Failed to get bot info:', data);
+            }
+        })
+        .catch(error => console.error('Error getting bot info:', error));
 }
 
 // Fungsi untuk mengatur webhook
 function setWebhook(webhookUrl) {
-  const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`;
-  return fetch(apiUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: webhookUrl, drop_pending_updates: true })
-  })
-    .then(response => response.json())
-    .then(data => {
-      if (data.ok) console.log('Webhook set successfully:', data);
-      else console.error('Failed to set webhook:', data);
+    const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`;
+    return fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: webhookUrl, drop_pending_updates: true })
     })
-    .catch(error => console.error('Error setting webhook:', error));
-}
-
-// Fungsi untuk menginisialisasi bot
-function initBot(requestUrl) {
-  if (!BOT_TOKEN && extractParamsFromUrl(requestUrl)) {
-    console.log('Extracted parameters:');
-    console.log('BOT_TOKEN:', BOT_TOKEN ? '***' + BOT_TOKEN.slice(-4) : 'NOT FOUND');
-    return getCurrentBotConfig()
-      .then(() => getBotInfo())
-      .then(() => setWebhook(new URL(requestUrl).toString()))
-      .then(() => setBotCommands());
-  }
-  return Promise.resolve();
-}
-
-// Main request handler
-addEventListener('fetch', event => {
-  const request = event.request;
-  if (!BOT_TOKEN) {
-    event.respondWith(
-      initBot(request.url)
-        .then(() => handleRequest(request))
-        .catch(error => {
-          console.error('Initialization error:', error);
-          return new Response('Bot initialization failed', { status: 500 });
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) console.log('Webhook set successfully:', data);
+            else console.error('Failed to set webhook:', data);
         })
-    );
-  } else {
-    event.respondWith(handleRequest(request));
-  }
-});
-
-// Fungsi untuk menangani request
-function handleRequest(request) {
-  const url = new URL(request.url);
-  if (request.method === 'POST') {
-    return handleUpdate(request);
-  } else {
-    const response = {
-      date: Math.floor(Date.now() / 1000),
-      botToken: BOT_TOKEN,
-      adminId: ADMIN_ID
-    };
-    return new Response(JSON.stringify(response), { status: 200 });
-  }
-}
-
-// Fungsi untuk menangani update dari Telegram
-function handleUpdate(request) {
-  return request.json()
-    .then(update => {
-      if (update.message) return handleMessage(update.message);
-      else if (update.callback_query) return handleCallbackQuery(update.callback_query);
-      return new Response('OK', { status: 200 });
-    })
-    .catch(() => new Response('OK', { status: 200 }));
-}
-
-// Fungsi untuk menangani pesan
-function handleMessage(message) {
-  const chatId = message.chat.id;
-  const text = message.text || '';
-  const isCommand = message.entities && message.entities.some(e => e.type === 'bot_command');
-
-  if (isCommand && text.startsWith('/start')) {
-    return handleStartCommand(chatId, message.from, text.split(' ')[1] || '', message);
-  } else if (isCommand && text.startsWith('/batch')) {
-    return handleBatchCommand(message);
-  } else if (isCommand && text.startsWith('/genlink')) {
-    return handleGenLinkCommand(message);
-  } else if (isCommand && text.startsWith('/uptime')) {
-    return handleUptimeCommand(chatId);
-  } else if (isCommand && text.startsWith('/ping')) {
-    return handlePingCommand(chatId, message.message_id);
-  } else if (isCommand && text.startsWith('/set')) {
-    return handleAdminCommand(message);   
-  } else if (message.forward_from_chat) {
-    return handleBatchMessage(message);
-  } else if (message.document || message.audio || message.photo || message.video || message.voice || message.video_note) {
-    return handleFileUpload(chatId, message.from, message);
-  } else if (isCommand) {
-    return handleOtherCommands(chatId, text, message);
-  }
-  return new Response('OK', { status: 200 });
-}
-
-
-
-// Fungsi untuk menangani perintah admin
-function handleAdminCommand(message) {
-  const chatId = message.chat.id;
-  const userId = message.from.id;
-  const text = message.text || '';
-  const args = text.split(' ').slice(1);
-
-  // Verifikasi admin
-  if (userId !== ADMIN_ID) {
-    return sendMessage(chatId, "❌ Anda bukan admin!");
-  }
-
-  if (args[0] === 'channel') {
-    if (!args[1]) {
-      return sendMessage(chatId, "⚠️ Format: /set channel [channel_id]");
-    }
-    return updateCurrentConfig({ CHANNEL_ID: args[1] })
-      .then(() => sendMessage(chatId, `✅ Channel ID berhasil diatur ke ${args[1]}`));
-  }
-
-  if (args[0] === 'group') {
-    if (!args[1]) {
-      return sendMessage(chatId, "⚠️ Format: /set group [group_id]");
-    }
-    return updateCurrentConfig({ GROUP_ID: args[1] })
-      .then(() => sendMessage(chatId, `✅ Group ID berhasil diatur ke ${args[1]}`));
-  }
-
-  if (args[0] === 'limit') {
-    const limit = parseInt(args[1]);
-    if (isNaN(limit) || limit <= 0) {
-      return sendMessage(chatId, "⚠️ Format: /set limit [angka_positif]");
-    }
-    return updateCurrentConfig({ BATCH_LIMIT: limit })
-      .then(() => sendMessage(chatId, `✅ Batch limit berhasil diatur ke ${limit}`));
-  }
-
-  if (args[0] === 'config') {
-    return getCurrentBotConfig()
-      .then(config => {
-        const configStr = JSON.stringify(config, null, 2);
-        return sendMessage(chatId, `<pre>${clearHTML(configStr)}</pre>`, null, null, 'HTML');
-      });
-  }
-
-  return sendMessage(chatId, `
-🔧 <b>Admin Commands:</b>
-• /set channel [id] - Atur channel ID
-• /set group [id] - Atur group ID
-• /set limit [num] - Atur batch limit
-• /set config - Lihat konfigurasi
-  `, null, null, 'HTML');
-}
-
-
-// Fungsi untuk menangani callback query
-function handleCallbackQuery(callbackQuery) {
-  const chatId = callbackQuery.message.chat.id;
-  const messageId = callbackQuery.message.message_id;
-  const data = callbackQuery.data;
-
-  if (data === 'me_help') {
-    const helpMessage = `📚 <b>Help Center</b>\n\n1. <b>Start</b>: Mulai bot dan dapatkan pesan selamat datang.\n2. <b>Batch</b>: Buat batch file untuk dibagikan.\n3. <b>Upload File</b>: Unggah file ke channel dan dapatkan link download.\n\nJika ada masalah, hubungi admin.`;
-    const keyboard = [[{ text: '🔙 Kembali ke Start', callback_data: 'back_to_start' }]];
-    return editMessage(chatId, messageId, helpMessage, keyboard);
-  } else if (data === 'back_to_start') {
-    const welcomeMessage = formatMessage(CONFIG.START_MSG, callbackQuery.from);
-    const keyboard = [
-      [{ text: 'Developers', url: 'https://t.me/ProjectbotID' }, { text: 'Contact', url: 'https://t.me/Chat_ProjectBot' }],
-      [{ text: 'Help', callback_data: 'me_help' }]
-    ];
-    return editMessage(chatId, messageId, welcomeMessage, keyboard);
-  }
-  return new Response('OK', { status: 200 });
-}
-
-// Fungsi untuk mengirim pesan
-function sendMessage(chatId, text, replyMarkup, replyToMessageId, parseMode = 'HTML') {
-  const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-  const body = {
-    chat_id: chatId,
-    text: text,
-    parse_mode: parseMode,
-    disable_web_page_preview: true
-  };
-  if (replyMarkup) body.reply_markup = { inline_keyboard: replyMarkup };
-  if (replyToMessageId) body.reply_to_message_id = replyToMessageId;
-  return fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-}
-
-// Fungsi untuk mengedit pesan
-function editMessage(chatId, messageId, text, replyMarkup) {
-  const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`;
-  const body = {
-    chat_id: chatId,
-    message_id: messageId,
-    text: text,
-    parse_mode: 'HTML',
-    disable_web_page_preview: true
-  };
-  if (replyMarkup) body.reply_markup = { inline_keyboard: replyMarkup };
-  return fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        .catch(error => console.error('Error setting webhook:', error));
 }
 
 // Fungsi untuk mengatur perintah bot
 function setBotCommands() {
-  const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/setMyCommands`;
-  const body = { commands: [
-    { command: 'start', description: 'Mulai bot atau dapatkan postingan' },
-    { command: 'batch', description: 'Buat link untuk lebih dari satu posting' },
-    { command: 'genlink', description: 'Buat link untuk satu posting' },
-    { command: 'ping', description: 'Untuk mengecek bot' },
-    { command: 'uptime', description: 'Untuk mengecek waktu hidup bot' }
-  ]};
-  return fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    .then(response => response.json())
-    .then(data => {
-      if (data.ok) console.log('Bot commands set successfully!');
-      else console.error('Failed to set bot commands:', data);
+    const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/setMyCommands`;
+    const body = {
+        commands: [
+            { command: 'start', description: 'Mulai bot atau dapatkan postingan' },
+            { command: 'batch', description: 'Buat link untuk lebih dari satu posting' },
+            { command: 'genlink', description: 'Buat link untuk satu posting' },
+            { command: 'ping', description: 'Untuk mengecek bot' },
+            { command: 'uptime', description: 'Untuk mengecek waktu hidup bot' }
+        ]
+    };
+    return fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
     })
-    .catch(error => console.error('Error setting bot commands:', error));
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) console.log('Bot commands set successfully!');
+            else console.error('Failed to set bot commands:', data);
+        })
+        .catch(error => console.error('Error setting bot commands:', error));
 }
 
+// Fungsi untuk menginisialisasi bot
+function initBot(requestUrl) {
+    if (!BOT_TOKEN && extractParamsFromUrl(requestUrl)) {
+        console.log('Extracted parameters:');
+        console.log('BOT_TOKEN:', BOT_TOKEN ? '***' + BOT_TOKEN.slice(-4) : 'NOT FOUND');
+        console.log('ADMIN_ID:', ADMIN_ID);
+        return getCurrentBotConfig()
+            .then(() => getBotInfo())
+            .then(() => setWebhook(new URL(requestUrl).toString()))
+            .then(() => setBotCommands())
+            .catch(error => {
+                console.error('Initialization error:', error);
+                throw error;
+            });
+    }
+    return Promise.resolve();
+}
 
+// Main request handler
+addEventListener('fetch', event => {
+    const request = event.request;
+    if (!BOT_TOKEN) {
+        event.respondWith(
+            initBot(request.url)
+                .then(() => handleRequest(request))
+                .catch(error => {
+                    console.error('Initialization error:', error);
+                    return new Response('Bot initialization failed', { status: 500 });
+                })
+        );
+    } else {
+        event.respondWith(handleRequest(request));
+    }
+});
 
-// [Lanjutan dari kode sebelumnya...]
+// Fungsi untuk menangani request
+function handleRequest(request) {
+    if (request.method === 'POST') {
+        return handleUpdate(request);
+    } else {
+        const response = {
+            status: 'ok',
+            date: Math.floor(Date.now() / 1000),
+            botToken: BOT_TOKEN ? '***' + BOT_TOKEN.slice(-4) : null,
+            adminId: ADMIN_ID,
+            botUsername: CONFIG.BOT_USERNAME
+        };
+        return new Response(JSON.stringify(response, null, 2), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+}
+
+// Fungsi untuk menangani update dari Telegram
+function handleUpdate(request) {
+    return request.json()
+        .then(update => {
+            if (update.message) return handleMessage(update.message);
+            else if (update.callback_query) return handleCallbackQuery(update.callback_query);
+            return new Response('OK', { status: 200 });
+        })
+        .catch(() => new Response('OK', { status: 200 }));
+}
+
+// Fungsi untuk menangani pesan
+function handleMessage(message) {
+    const chatId = message.chat.id;
+    const text = message.text || '';
+    const isCommand = message.entities && message.entities.some(e => e.type === 'bot_command');
+
+    if (isCommand && text.startsWith('/start')) {
+        return handleStartCommand(chatId, message.from, text.split(' ')[1] || '', message);
+    } else if (isCommand && text.startsWith('/batch')) {
+        return handleBatchCommand(message);
+    } else if (isCommand && text.startsWith('/genlink')) {
+        return handleGenLinkCommand(message);
+    } else if (isCommand && text.startsWith('/uptime')) {
+        return handleUptimeCommand(chatId);
+    } else if (isCommand && text.startsWith('/ping')) {
+        return handlePingCommand(chatId, message.message_id);
+    } else if (isCommand && text.startsWith('/set')) {
+        return handleAdminCommand(message);
+    } else if (message.forward_from_chat) {
+        return handleBatchMessage(message);
+    } else if (message.document || message.audio || message.photo || message.video || message.voice || message.video_note) {
+        return handleFileUpload(chatId, message.from, message);
+    }
+
+    return new Response('OK', { status: 200 });
+}
+
+// Fungsi untuk menangani perintah admin
+function handleAdminCommand(message) {
+    const chatId = message.chat.id;
+    const userId = message.from.id;
+    const text = message.text || '';
+    const args = text.split(' ').slice(1);
+
+    if (userId !== ADMIN_ID) {
+        return sendMessage(chatId, "❌ Anda bukan admin!");
+    }
+
+    if (!args[0]) {
+        return sendMessage(chatId, `🔧 <b>Admin Commands:</b>
+• /set channel [id] - Atur channel ID
+• /set group [id] - Atur group ID
+• /set limit [num] - Atur batch limit
+• /set start_msg [pesan] - Atur pesan start custom
+• /set reset_start_msg - Reset pesan start ke default
+• /set config - Lihat konfigurasi`, null, null, 'HTML');
+    }
+
+    const command = args[0];
+    const value = args[1];
+
+    if (command === 'channel') {
+        if (!value) return sendMessage(chatId, "⚠️ Format: /set channel [channel_id]");
+        return updateCurrentConfig({ CHANNEL_ID: value })
+            .then(success => sendMessage(chatId, success ? `✅ Channel ID berhasil diatur ke ${value}` : "❌ Gagal menyimpan konfigurasi"));
+    }
+
+    if (command === 'group') {
+        if (!value) return sendMessage(chatId, "⚠️ Format: /set group [group_id]");
+        return updateCurrentConfig({ GROUP_ID: value })
+            .then(success => sendMessage(chatId, success ? `✅ Group ID berhasil diatur ke ${value}` : "❌ Gagal menyimpan konfigurasi"));
+    }
+
+    if (command === 'limit') {
+        const limit = parseInt(value);
+        if (isNaN(limit) || limit <= 0) return sendMessage(chatId, "⚠️ Format: /set limit [angka_positif]");
+        return updateCurrentConfig({ BATCH_LIMIT: limit })
+            .then(success => sendMessage(chatId, success ? `✅ Batch limit berhasil diatur ke ${limit}` : "❌ Gagal menyimpan konfigurasi"));
+    }
+
+    if (command === 'start_msg') {
+        if (args.length < 2) return sendMessage(chatId, "⚠️ Format: /set start_msg [pesan]\n\nGunakan {first} untuk nama depan, {last} untuk nama belakang, {username} untuk username, dan {name} untuk nama lengkap");
+        const customMessage = args.slice(1).join(' ');
+        return updateCurrentConfig({ CUSTOM_START_MSG: customMessage })
+            .then(success => {
+                if (success) {
+                    const preview = formatMessage(customMessage, message.from);
+                    return sendMessage(chatId, `✅ Pesan start custom berhasil diatur!\n\nPratinjau:\n${preview}`, null, null, 'HTML');
+                } else {
+                    return sendMessage(chatId, "❌ Gagal menyimpan konfigurasi");
+                }
+            });
+    }
+
+    if (command === 'reset_start_msg') {
+        return updateCurrentConfig({ CUSTOM_START_MSG: null })
+            .then(success => sendMessage(chatId, success ? "✅ Pesan start custom telah direset ke default" : "❌ Gagal menyimpan konfigurasi"));
+    }
+
+    if (command === 'config') {
+        return getCurrentBotConfig()
+            .then(config => {
+                const configStr = JSON.stringify(config, null, 2);
+                return sendMessage(chatId, `<pre>${clearHTML(configStr)}</pre>`, null, null, 'HTML');
+            });
+    }
+
+    return sendMessage(chatId, "❌ Perintah tidak dikenal");
+}
+
+// Fungsi untuk menangani callback query
+function handleCallbackQuery(callbackQuery) {
+    const chatId = callbackQuery.message.chat.id;
+    const messageId = callbackQuery.message.message_id;
+    const data = callbackQuery.data;
+
+    if (data === 'me_help') {
+        const helpMessage = `📚 <b>Help Center</b>\n\n1. <b>Start</b>: Mulai bot dan dapatkan pesan selamat datang.\n2. <b>Batch</b>: Buat batch file untuk dibagikan.\n3. <b>Upload File</b>: Unggah file ke channel dan dapatkan link download.\n\nJika ada masalah, hubungi admin.`;
+        const keyboard = [[{ text: '🔙 Kembali ke Start', callback_data: 'back_to_start' }]];
+        return editMessage(chatId, messageId, helpMessage, keyboard);
+    } else if (data === 'back_to_start') {
+        const welcomeMessage = getStartMessage(callbackQuery.from);
+        const keyboard = [
+            [{ text: '📢 Channel', url: 'https://t.me/ProjectbotID' }, { text: '💬 Support', url: 'https://t.me/Chat_ProjectBot' }],
+            [{ text: 'ℹ️ Help', callback_data: 'me_help' }]
+        ];
+        return editMessage(chatId, messageId, welcomeMessage, keyboard);
+    }
+    return new Response('OK', { status: 200 });
+}
+
+// Fungsi untuk mendapatkan pesan start (custom atau default)
+function getStartMessage(user) {
+    const message = CONFIG.CUSTOM_START_MSG || CONFIG.START_MSG;
+    return formatMessage(message, user);
+}
+
+// Fungsi untuk mengirim pesan
+function sendMessage(chatId, text, replyMarkup, replyToMessageId, parseMode = 'HTML') {
+    const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const body = {
+        chat_id: chatId,
+        text: text,
+        parse_mode: parseMode,
+        disable_web_page_preview: true
+    };
+    if (replyMarkup) body.reply_markup = { inline_keyboard: replyMarkup };
+    if (replyToMessageId) body.reply_to_message_id = replyToMessageId;
+    return fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+}
+
+// Fungsi untuk mengedit pesan
+function editMessage(chatId, messageId, text, replyMarkup) {
+    const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`;
+    const body = {
+        chat_id: chatId,
+        message_id: messageId,
+        text: text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+    };
+    if (replyMarkup) body.reply_markup = { inline_keyboard: replyMarkup };
+    return fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+}
 
 // Fungsi untuk menangani perintah /start
-function handleStartCommand(chatId, from, payload, message) {
-  if (!payload) {
-    return sendWelcomeMessage(chatId, from);
-  }
-  
-  try {
-    const decodedPayload = atob(payload);
-    const match = decodedPayload.match(/get_(\d+)(?:-(\d+))?/);
-    
-    if (!match) return sendWelcomeMessage(chatId, from);
-    
-    if (match[1] && !match[2]) {
-      return handleFileDownload(chatId, from, match[1], message);
-    } 
-    
-    if (match[1] && match[2]) {    
-      return sendBatch(chatId, from.id, parseInt(match[1]), parseInt(match[2]), message);     
+function handleStartCommand(chatId, from, payload) {
+    if (!payload) {
+        return sendWelcomeMessage(chatId, from);
     }
-  } catch (e) {
-    console.error('Error decoding payload:', e);
-  }
-  
-  return sendWelcomeMessage(chatId, from);
+    try {
+        const decodedPayload = atob(payload);
+        const match = decodedPayload.match(/get_(\d+)(?:-(\d+))?/);
+        if (!match) {
+            return sendWelcomeMessage(chatId, from);
+        }
+        if (match[1] && !match[2]) {
+            return handleFileDownload(chatId, from, match[1]);
+        }
+        if (match[1] && match[2]) {
+            return sendBatch(chatId, from.id, parseInt(match[1]), parseInt(match[2]));
+        }
+    } catch (e) {
+        console.error('Error decoding payload:', e);
+    }
+    return sendWelcomeMessage(chatId, from);
 }
 
 // Fungsi untuk mengirim pesan selamat datang
 function sendWelcomeMessage(chatId, from) {
-  const message = formatMessage(CONFIG.START_MSG, from);
-  const keyboard = [
-    [
-      { text: '📢 Channel', url: 'https://t.me/ProjectbotID' },
-      { text: '💬 Support', url: 'https://t.me/Chat_ProjectBot' }
-    ],
-    [
-      { text: 'ℹ️ Help', callback_data: 'me_help' }
-    ]    
-  ];
-  
-  return sendMessage(chatId, message, keyboard);
+    const message = getStartMessage(from);
+    const keyboard = [
+        [{ text: '📢 Channel', url: 'https://t.me/ProjectbotID' }, { text: '💬 Support', url: 'https://t.me/Chat_ProjectBot' }],
+        [{ text: 'ℹ️ Help', callback_data: 'me_help' }]
+    ];
+    return sendMessage(chatId, message, keyboard);
 }
 
 // Fungsi untuk menangani pengunduhan file
-function handleFileDownload(chatId, from, fileCode, originalMessage) {
-  if (!CONFIG.GROUP_ID) {
-    return sendMessage(chatId, "❌ Bot belum diatur dengan benar. Admin perlu mengatur GROUP_ID terlebih dahulu.");
-  }
-
-  return getChatMember(CONFIG.GROUP_ID, from.id)
-    .then(response => response.json())
-    .then(data => {
-      const status = data.result?.status;
-      if (status === 'left' || status === 'kicked') {
-        return sendJoinPrompt(chatId, from, fileCode);
-      }
-      
-      const messageId = fileCode;
-      return copyMessage(chatId, CONFIG.CHANNEL_ID, parseInt(messageId), {
-        caption: originalMessage?.caption,
-        caption_entities: originalMessage?.caption_entities,
-        reply_markup: originalMessage?.reply_markup
-      }).catch(err => {
-        console.error('Failed to copy message:', err);
-        return sendMessage(chatId, "❌ Gagal mengambil file. File mungkin sudah dihapus.");
-      });
-    })
-    .catch(error => {
-      console.error('Error checking group membership:', error);
-      return sendJoinPrompt(chatId, from, fileCode);
-    });
+function handleFileDownload(chatId, from, fileCode) {
+    if (!CONFIG.GROUP_ID) {
+        return sendMessage(chatId, "❌ Bot belum diatur dengan benar. Admin perlu mengatur GROUP_ID terlebih dahulu.");
+    }
+    return getChatMember(CONFIG.GROUP_ID, from.id)
+        .then(response => response.json())
+        .then(data => {
+            const status = data.result?.status;
+            if (status === 'left' || status === 'kicked') {
+                return sendJoinPrompt(chatId, from, fileCode);
+            }
+            const messageId = parseInt(fileCode);
+            return copyMessage(chatId, CONFIG.CHANNEL_ID, messageId)
+                .catch(err => {
+                    console.error('Failed to copy message:', err);
+                    return sendMessage(chatId, "❌ Gagal mengambil file. File mungkin sudah dihapus.");
+                });
+        })
+        .catch(error => {
+            console.error('Error checking group membership:', error);
+            return sendJoinPrompt(chatId, from, fileCode);
+        });
 }
 
 // Fungsi untuk menangani upload file
 function handleFileUpload(chatId, from, message) {
-  if (!CONFIG.CHANNEL_ID) {
-    return sendMessage(chatId, "❌ Bot belum diatur dengan benar. Admin perlu mengatur CHANNEL_ID terlebih dahulu.");
-  }
-
-  return copyMessage(CONFIG.CHANNEL_ID, chatId, message.message_id, {
-    caption: message.caption,
-    caption_entities: message.caption_entities,
-    reply_markup: message.reply_markup
-  })
-  .then(response => response.json())
-  .then(data => {
-    const newMsg = `get_${data.result.message_id}`;
-    const linkCode = btoa(newMsg).replace(/=/g, '');
-    
-    const keyboard = [
-      [{ text: '📂 Open Link', url: `https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}` }],
-      [{ text: '🔗 Share', url: `https://telegram.me/share/url?url=https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}` }]            
-    ];
-    
-    return sendMessage(
-      chatId,
-      `✅ <b>File uploaded successfully!</b>\n\n` +
-      `<code>https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}</code>`,
-      keyboard,
-      message.message_id
-    );
-  })
-  .catch(error => {
-    console.error('Error uploading file:', error);
-    return sendMessage(chatId, "❌ Gagal mengupload file. Silakan coba lagi.");
-  });
+    if (!CONFIG.CHANNEL_ID) {
+        return sendMessage(chatId, "❌ Bot belum diatur dengan benar. Admin perlu mengatur CHANNEL_ID terlebih dahulu.");
+    }
+    return copyMessage(CONFIG.CHANNEL_ID, chatId, message.message_id, {
+        caption: message.caption,
+        caption_entities: message.caption_entities,
+        reply_markup: message.reply_markup
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.ok) {
+                throw new Error(data.description || 'Failed to copy message');
+            }
+            const newMsg = `get_${data.result.message_id}`;
+            const linkCode = btoa(newMsg).replace(/=/g, '');
+            const keyboard = [
+                [{ text: '📂 Open Link', url: `https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}` }],
+                [{ text: '🔗 Share', url: `https://telegram.me/share/url?url=https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}` }]
+            ];
+            return sendMessage(
+                chatId,
+                `✅ <b>File uploaded successfully!</b>\n\n` +
+                `<code>https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}</code>`,
+                keyboard,
+                message.message_id
+            );
+        })
+        .catch(error => {
+            console.error('Error uploading file:', error);
+            return sendMessage(chatId, "❌ Gagal mengupload file. Silakan coba lagi.");
+        });
 }
 
 // Fungsi untuk menangani perintah /batch
 function handleBatchCommand(message) {
-  const chatId = message.chat.id;
-  const userId = message.from.id;
-
-  if (!CONFIG.CHANNEL_ID) {
-    return sendMessage(chatId, "❌ Bot belum diatur dengan benar. Admin perlu mengatur CHANNEL_ID terlebih dahulu.");
-  }
-
-  state.batchState[userId] = {
-    step: 'awaiting_first',
-    firstId: null,
-    lastId: null
-  };
-
-  return sendMessage(
-    chatId,
-    "📦 <b>Batch Mode</b>\n\n" +
-    "1. Forward pesan pertama dari channel\n" +
-    "2. Forward pesan terakhir dari channel\n\n" +
-    `⚠️ Maksimal ${CONFIG.BATCH_LIMIT} file per batch`,
-    null,
-    'HTML'
-  );
+    const chatId = message.chat.id;
+    const userId = message.from.id;
+    if (!CONFIG.CHANNEL_ID) {
+        return sendMessage(chatId, "❌ Bot belum diatur dengan benar. Admin perlu mengatur CHANNEL_ID terlebih dahulu.");
+    }
+    state.batchState[userId] = {
+        step: 'awaiting_first',
+        firstId: null,
+        lastId: null
+    };
+    return sendMessage(
+        chatId,
+        "📦 <b>Batch Mode</b>\n\n" +
+        "1. Forward pesan pertama dari channel\n" +
+        "2. Forward pesan terakhir dari channel\n\n" +
+        `⚠️ Maksimal ${CONFIG.BATCH_LIMIT} file per batch`,
+        null,
+        null,
+        'HTML'
+    );
 }
 
 // Fungsi untuk menangani pesan batch
 function handleBatchMessage(message) {
-  const chat = message.chat;
-  const from = message.from;
-  const forwardChat = message.forward_from_chat;
-  const forwardMsgId = message.forward_from_message_id;
-  const userId = from.id;
+    const chat = message.chat;
+    const from = message.from;
+    const forwardChat = message.forward_from_chat;
+    const forwardMsgId = message.forward_from_message_id;
+    const userId = from.id;
 
-  if (!state.batchState[userId] || !forwardChat || forwardChat.id !== CONFIG.CHANNEL_ID) {
-    return Promise.resolve();
-  }
-
-  const batch = state.batchState[userId];
-  const msgId = forwardMsgId;
-
-  if (batch.step === 'awaiting_first') {
-    batch.firstId = msgId;
-    batch.step = 'awaiting_last';
-    return sendMessage(chat.id, "✅ Dapat ID pesan pertama. Sekarang forward pesan terakhir");
-  }
-
-  if (batch.step === 'awaiting_last') {
-    batch.lastId = msgId;
-    
-    if (batch.firstId > batch.lastId) {
-      delete state.batchState[userId];
-      return sendMessage(chat.id, "❌ Range tidak valid. ID pertama > ID terakhir");
+    if (!state.batchState[userId] || !forwardChat || forwardChat.id != CONFIG.CHANNEL_ID) {
+        return Promise.resolve(new Response('OK', { status: 200 }));
     }
 
-    const fileCount = batch.lastId - batch.firstId + 1;
-    if (fileCount > CONFIG.BATCH_LIMIT) {
-      delete state.batchState[userId];
-      return sendMessage(chat.id, `❌ Maksimal ${CONFIG.BATCH_LIMIT} file per batch`);
+    const batch = state.batchState[userId];
+    const msgId = forwardMsgId;
+
+    if (batch.step === 'awaiting_first') {
+        batch.firstId = msgId;
+        batch.step = 'awaiting_last';
+        return sendMessage(chat.id, "✅ Dapat ID pesan pertama. Sekarang forward pesan terakhir");
     }
 
-    const string = `get_${batch.firstId}-${batch.lastId}`;
-    const base64String = btoa(string).replace(/=/g, '');
-    const link = `https://t.me/${CONFIG.BOT_USERNAME}?start=${base64String}`;
-
-    const buttons = [
-      [{ text: '📂 Open Batch', url: link }],
-      [{ text: '🔗 Share', url: `https://telegram.me/share/url?url=${link}` }]            
-    ];
-
-    delete state.batchState[userId];
-    return sendMessage(
-      chat.id,
-      `✅ <b>Batch link created for ${fileCount} files!</b>\n\n` +
-      `<code>${link}</code>`,
-      buttons,
-      'HTML'
-    );
-  }
-
-  return Promise.resolve();
+    if (batch.step === 'awaiting_last') {
+        batch.lastId = msgId;
+        if (batch.firstId > batch.lastId) {
+            delete state.batchState[userId];
+            return sendMessage(chat.id, "❌ Range tidak valid. ID pertama > ID terakhir");
+        }
+        const fileCount = batch.lastId - batch.firstId + 1;
+        if (fileCount > CONFIG.BATCH_LIMIT) {
+            delete state.batchState[userId];
+            return sendMessage(chat.id, `❌ Maksimal ${CONFIG.BATCH_LIMIT} file per batch`);
+        }
+        const string = `get_${batch.firstId}-${batch.lastId}`;
+        const base64String = btoa(string).replace(/=/g, '');
+        const link = `https://t.me/${CONFIG.BOT_USERNAME}?start=${base64String}`;
+        const buttons = [
+            [{ text: '📂 Open Batch', url: link }],
+            [{ text: '🔗 Share', url: `https://telegram.me/share/url?url=${link}` }]
+        ];
+        delete state.batchState[userId];
+        return sendMessage(
+            chat.id,
+            `✅ <b>Batch link created for ${fileCount} files!</b>\n\n` +
+            `<code>${link}</code>`,
+            buttons,
+            null,
+            'HTML'
+        );
+    }
+    return Promise.resolve(new Response('OK', { status: 200 }));
 }
 
 // Fungsi untuk menangani perintah /genlink
 function handleGenLinkCommand(message) {
-  const chatId = message.chat.id;
-  
-  if (!message.reply_to_message) {
-    return sendMessage(chatId, "⚠️ Balas pesan yang ingin dibuat link");
-  }
+    const chatId = message.chat.id;
+    if (!message.reply_to_message) {
+        return sendMessage(chatId, "⚠️ Balas pesan dari channel yang ingin dibuat link");
+    }
+    if (!CONFIG.CHANNEL_ID) {
+        return sendMessage(chatId, "❌ Bot belum diatur dengan benar. Admin perlu mengatur CHANNEL_ID terlebih dahulu.");
+    }
+    const repliedMsg = message.reply_to_message;
+    if (!repliedMsg.forward_from_chat || repliedMsg.forward_from_chat.id != CONFIG.CHANNEL_ID) {
+        return sendMessage(chatId, "⚠️ Pesan yang Anda balas harus merupakan pesan yang diforward dari channel.");
+    }
 
-  if (!CONFIG.CHANNEL_ID) {
-    return sendMessage(chatId, "❌ Bot belum diatur dengan benar. Admin perlu mengatur CHANNEL_ID terlebih dahulu.");
-  }
-
-  const msgId = message.reply_to_message.message_id;
-  
-  return copyMessage(CONFIG.CHANNEL_ID, chatId, msgId, {
-    caption: message.reply_to_message.caption,
-    caption_entities: message.reply_to_message.caption_entities,
-    reply_markup: message.reply_to_message.reply_markup
-  })
-  .then(response => response.json())
-  .then(data => {
-    const newMsg = `get_${data.result.message_id}`;
+    const originalMessageId = repliedMsg.forward_from_message_id;
+    const newMsg = `get_${originalMessageId}`;
     const linkCode = btoa(newMsg).replace(/=/g, '');
-    
     const keyboard = [
-      [{ text: '📂 Open Link', url: `https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}` }],
-      [{ text: '🔗 Share', url: `https://telegram.me/share/url?url=https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}` }]            
+        [{ text: '📂 Open Link', url: `https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}` }],
+        [{ text: '🔗 Share', url: `https://telegram.me/share/url?url=https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}` }]
     ];
-    
     return sendMessage(
-      chatId,
-      `✅ <b>Link created successfully!</b>\n\n` +
-      `<code>https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}</code>`,
-      keyboard,
-      message.message_id
+        chatId,
+        `✅ <b>Link created successfully!</b>\n\n` +
+        `<code>https://t.me/${CONFIG.BOT_USERNAME}?start=${linkCode}</code>`,
+        keyboard,
+        message.message_id
     );
-  })
-  .catch(error => {
-    console.error('Error generating link:', error);
-    return sendMessage(chatId, "❌ Gagal membuat link. Silakan coba lagi.");
-  });
-}
-
-// Fungsi untuk membersihkan HTML
-function clearHTML(text) {
-  if (!text) return '';
-  return text.toString()
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-// Fungsi untuk memformat pesan
-function formatMessage(template, user) {
-  let name = clearHTML(user.first_name);
-  if (user.last_name) name += ' ' + clearHTML(user.last_name);
-  
-  return template
-    .replace(/{name}/g, name)
-    .replace(/{first}/g, user.first_name)
-    .replace(/{last}/g, user.last_name || '')
-    .replace(/{username}/g, user.username ? `@${user.username}` : '')
-    .replace(/{owner}/g, CONFIG.OWNER || 'Admin');
-}
-
-// Fungsi untuk mengirim prompt join
-function sendJoinPrompt(chatId, from, fileCode) {
-  const name = from.first_name + (from.last_name ? ' ' + from.last_name : '');
-  const message = `👋 <b>Halo ${clearHTML(name)}</b>\n\n` +
-    `Anda harus bergabung di channel/grup kami untuk mengakses file ini.\n\n` +
-    `Silakan join terlebih dahulu:`;
-  
-  const keyboard = [
-    [{ text: '📢 Join Channel', url: 'https://t.me/ProjectbotID' }],
-    [{ text: '🔄 Coba Lagi', url: `https://t.me/${CONFIG.BOT_USERNAME}?start=get_${fileCode}` }]
-  ];
-  
-  return sendMessage(chatId, message, keyboard, null, 'HTML');
 }
 
 // Fungsi untuk menangani perintah /ping
 function handlePingCommand(chatId, messageId) {
-  const startTime = Date.now();
-  
-  return sendMessage(chatId, '🏓 Pinging...', [], messageId)
-    .then(response => response.json())
-    .then(data => {
-      const endTime = Date.now();
-      const pingTime = endTime - startTime;
-      return editMessage(
-        chatId, 
-        data.result.message_id, 
-        `🏓 Pong!\n⏱️ <code>${pingTime}ms</code>`
-      );
-    })
-    .catch(error => {
-      console.error('Ping command error:', error);
-      return sendMessage(chatId, '❌ Gagal melakukan ping');
-    });
+    const startTime = Date.now();
+    return sendMessage(chatId, '🏓 Pinging...', null, messageId)
+        .then(response => response.json())
+        .then(data => {
+            const endTime = Date.now();
+            const pingTime = endTime - startTime;
+            return editMessage(
+                chatId,
+                data.result.message_id,
+                `🏓 Pong!\n⏱️ <code>${pingTime}ms</code>`
+            );
+        })
+        .catch(error => {
+            console.error('Ping command error:', error);
+            return sendMessage(chatId, '❌ Gagal melakukan ping');
+        });
 }
 
 // Fungsi untuk menangani perintah /uptime
 function handleUptimeCommand(chatId) {
-  if (!CONFIG.START_TIME) {
-    return sendMessage(chatId, "❌ Waktu mulai bot tidak tercatat");
-  }
-
-  const startTime = new Date(CONFIG.START_TIME);
-  const uptime = Date.now() - startTime;
-  
-  const days = Math.floor(uptime / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((uptime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((uptime % (1000 * 60)) / 1000);
-
-  const message = `⏱️ <b>Bot Uptime</b>\n\n` +
-    `🕒 <b>Start Time:</b> <code>${startTime.toISOString()}</code>\n` +
-    `⏳ <b>Uptime:</b> <code>${days}d ${hours}h ${minutes}m ${seconds}s</code>`;
-  
-  return sendMessage(chatId, message, null, null, 'HTML');
+    if (!CONFIG.START_TIME) {
+        return sendMessage(chatId, "❌ Waktu mulai bot tidak tercatat");
+    }
+    const startTime = new Date(CONFIG.START_TIME);
+    const uptime = Date.now() - startTime.getTime();
+    const days = Math.floor(uptime / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((uptime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((uptime % (1000 * 60)) / 1000);
+    const message = `⏱️ <b>Bot Uptime</b>\n\n` +
+        `🕒 <b>Start Time:</b> <code>${startTime.toISOString()}</code>\n` +
+        `⏳ <b>Uptime:</b> <code>${days}d ${hours}h ${minutes}m ${seconds}s</code>`;
+    return sendMessage(chatId, message, null, null, 'HTML');
 }
+
+// Fungsi untuk mendapatkan informasi member grup
+function getChatMember(chatId, userId) {
+    const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember`;
+    return fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, user_id: userId })
+    });
+}
+
+// Fungsi untuk menyalin pesan
+function copyMessage(chatId, fromChatId, messageId, options = {}) {
+    const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/copyMessage`;
+    const body = {
+        chat_id: chatId,
+        from_chat_id: fromChatId,
+        message_id: messageId,
+        ...options
+    };
+    return fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+}
+
+// Fungsi untuk mengirim batch file
+function sendBatch(chatId, userId, firstId, lastId) {
+    if (!CONFIG.GROUP_ID) {
+        return sendMessage(chatId, "❌ Bot belum diatur dengan benar. Admin perlu mengatur GROUP_ID terlebih dahulu.");
+    }
+    return getChatMember(CONFIG.GROUP_ID, userId)
+        .then(response => response.json())
+        .then(data => {
+            const status = data.result?.status;
+            if (status === 'left' || status === 'kicked') {
+                return sendBatchJoinPrompt(chatId, firstId, lastId);
+            }
+            const fileCount = lastId - firstId + 1;
+            const promises = [];
+            for (let i = firstId; i <= lastId; i++) {
+                promises.push(copyMessage(chatId, CONFIG.CHANNEL_ID, i));
+            }
+            return Promise.all(promises)
+                .then(() => sendMessage(chatId, `✅ ${fileCount} file berhasil dikirim!`))
+                .catch(error => {
+                    console.error('Failed to send batch:', error);
+                    return sendMessage(chatId, "❌ Gagal mengirim file batch.");
+                });
+        })
+        .catch(error => {
+            console.error('Error checking group membership:', error);
+            return sendBatchJoinPrompt(chatId, firstId, lastId);
+        });
+}
+
+// Fungsi untuk mengirim prompt join untuk batch
+function sendBatchJoinPrompt(chatId, firstId, lastId) {
+    const string = `get_${firstId}-${lastId}`;
+    const base64String = btoa(string).replace(/=/g, '');
+    const link = `https://t.me/${CONFIG.BOT_USERNAME}?start=${base64String}`;
+    const message = `👋 <b>Halo!</b>\n\n` +
+        `Anda harus bergabung di channel/grup kami untuk mengakses file ini.\n\n` +
+        `Silakan join terlebih dahulu:`;
+    const keyboard = [
+        [{ text: '📢 Join Channel', url: 'https://t.me/ProjectbotID' }],
+        [{ text: '🔄 Coba Lagi', url: link }]
+    ];
+    return sendMessage(chatId, message, keyboard, null, 'HTML');
+}
+
+// Fungsi untuk mengirim prompt join
+function sendJoinPrompt(chatId, from, fileCode) {
+    const name = (from.first_name || '') + (from.last_name ? ' ' + from.last_name : '');
+    const message = `👋 <b>Halo ${clearHTML(name)}</b>\n\n` +
+        `Anda harus bergabung di channel/grup kami untuk mengakses file ini.\n\n` +
+        `Silakan join terlebih dahulu:`;
+    const encodedFileCode = btoa(`get_${fileCode}`).replace(/=/g, '');
+    const keyboard = [
+        [{ text: '📢 Join Channel', url: 'https://t.me/ProjectbotID' }],
+        [{ text: '🔄 Coba Lagi', url: `https://t.me/${CONFIG.BOT_USERNAME}?start=${encodedFileCode}` }]
+    ];
+    return sendMessage(chatId, message, keyboard, null, 'HTML');
+}
+
+// Fungsi untuk membersihkan HTML
+function clearHTML(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Fungsi untuk memformat pesan
+function formatMessage(template, user) {
+    if (!template || !user) return '';
+    let name = clearHTML(user.first_name || '');
+    if (user.last_name) name += ' ' + clearHTML(user.last_name);
+    return template
+        .replace(/{name}/g, name)
+        .replace(/{first}/g, clearHTML(user.first_name || ''))
+        .replace(/{last}/g, clearHTML(user.last_name || ''))
+        .replace(/{username}/g, user.username ? `@${user.username}` : '')
+        .replace(/{owner}/g, CONFIG.OWNER || 'Admin');
+}
+
